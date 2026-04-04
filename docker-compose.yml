@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: ./gateway-dotnet/src/MedScribe.API
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__sql=Server=sqlserver;Database=MedScribeDB;User Id=sa;Password=MedScribe2026!;TrustServerCertificate=True;
+      - Microservicios__ServicioIA=http://servicio-ia:8000
+    depends_on:
+      - sqlserver
+      - servicio-ia
+
+  servicio-ia:
+    build: ./servicio-ia
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "MedScribe2026!"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+volumes:
+  sqlserver_data:

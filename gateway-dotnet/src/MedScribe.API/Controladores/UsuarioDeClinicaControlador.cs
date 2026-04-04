@@ -1,0 +1,120 @@
+using MedScribe.API.Contratos;
+using MedScribe.API.Servicios;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using System.Data;
+
+namespace MedScribe.API.Controladores
+{
+    [Route("api/usuarios-clinica")]
+    [ApiController]
+    public class UsuarioDeClinicaControlador : ControllerBase
+    {
+        private readonly IUsuarioDeClinicaDAO _usuarioDeClinicaDAO;
+        private readonly ProveedorContextoClinica _contexto;
+
+        public UsuarioDeClinicaControlador(IUsuarioDeClinicaDAO usuarioDeClinicaDAO, ProveedorContextoClinica contexto)
+        {
+            _usuarioDeClinicaDAO = usuarioDeClinicaDAO;
+            _contexto = contexto;
+        }
+
+        [HttpGet]
+        public IActionResult ListarUsuariosPorClinica()
+        {
+            var usuarios = _usuarioDeClinicaDAO.ListarUsuariosPorClinica();
+            return Ok(usuarios);
+        }
+
+        [HttpPost]
+        public IActionResult CrearUsuarioEnClinica([FromBody] PeticionCrearUsuarioEnClinica peticion)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            int idUsuario = _usuarioDeClinicaDAO.CrearUsuarioEnClinica(
+                peticion.NombreCompleto,
+                peticion.CorreoElectronico,
+                peticion.Contrasena,
+                peticion.RolDelSistema
+            );
+
+            if (idUsuario > 0)
+                return Created("", new { mensaje = "Usuario creado correctamente", idUsuario });
+            return StatusCode(500, new { mensaje = "Error al crear el usuario" });
+        }
+
+        [HttpPut("{idUsuario:int}/cambiar-rol")]
+        public IActionResult CambiarRolDeUsuario(int idUsuario, [FromBody] PeticionCambiarRol peticion)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            int resultado = _usuarioDeClinicaDAO.CambiarRolDeUsuario(idUsuario, peticion.NuevoRol);
+            if (resultado > 0)
+                return Ok(new { mensaje = "Rol actualizado correctamente" });
+            return NotFound(new { mensaje = "Usuario no encontrado" });
+        }
+
+        [HttpGet("{idUsuario:int}/permisos")]
+        public IActionResult ObtenerPermisosDeUsuario(int idUsuario)
+        {
+            using var conexion = _contexto.AbrirConexionConContextoDeClinica();
+            using var comando = new SqlCommand("usp_Usuarios_ObtenerPermisosCompletos", conexion) { CommandType = CommandType.StoredProcedure };
+            comando.Parameters.Add(new SqlParameter("@IdUsuario", SqlDbType.Int) { Value = idUsuario });
+            using var lector = comando.ExecuteReader();
+            if (!lector.Read())
+                return NotFound(new { mensaje = "Usuario no encontrado" });
+            return Ok(new
+            {
+                idUsuario = lector.GetInt32(lector.GetOrdinal("IdUsuario")),
+                nombreCompleto = lector.GetString(lector.GetOrdinal("NombreCompleto")),
+                rolDelSistema = lector.GetString(lector.GetOrdinal("RolDelSistema")),
+                nombreDelRol = lector.IsDBNull(lector.GetOrdinal("NombreDelRol")) ? "" : lector.GetString(lector.GetOrdinal("NombreDelRol")),
+                permisosDelRolBase = lector.IsDBNull(lector.GetOrdinal("PermisosDelRolBase")) ? "{}" : lector.GetString(lector.GetOrdinal("PermisosDelRolBase")),
+                permisosPersonalizados = lector.IsDBNull(lector.GetOrdinal("PermisosPersonalizadosJSON")) ? "" : lector.GetString(lector.GetOrdinal("PermisosPersonalizadosJSON")),
+            });
+        }
+
+        [HttpPut("{idUsuario:int}/permisos")]
+        public IActionResult GuardarPermisosPersonalizadosDeUsuario(int idUsuario, [FromBody] PeticionPermisosPersonalizados peticion)
+        {
+            using var conexion = _contexto.AbrirConexionConContextoDeClinica();
+            using var comando = new SqlCommand("usp_Usuarios_ActualizarPermisosPersonalizados", conexion) { CommandType = CommandType.StoredProcedure };
+            comando.Parameters.Add(new SqlParameter("@IdUsuario", SqlDbType.Int) { Value = idUsuario });
+            comando.Parameters.Add(new SqlParameter("@PermisosPersonalizadosJSON", SqlDbType.VarChar) { Value = peticion.PermisosPersonalizadosJSON });
+            comando.ExecuteNonQuery();
+            return Ok(new { mensaje = "Permisos personalizados guardados" });
+        }
+    }
+
+    public class PeticionPermisosPersonalizados
+    {
+        public string PermisosPersonalizadosJSON { get; set; } = "{}";
+    }
+
+    public class PeticionCrearUsuarioEnClinica
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre completo es obligatorio")]
+        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 2)]
+        public string NombreCompleto { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El correo electronico es obligatorio")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "El formato del correo no es valido")]
+        [System.ComponentModel.DataAnnotations.StringLength(150)]
+        public string CorreoElectronico { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "La contrasena es obligatoria")]
+        [System.ComponentModel.DataAnnotations.StringLength(255, MinimumLength = 8)]
+        public string Contrasena { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El rol es obligatorio")]
+        public string RolDelSistema { get; set; } = string.Empty;
+    }
+
+    public class PeticionCambiarRol
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nuevo rol es obligatorio")]
+        public string NuevoRol { get; set; } = string.Empty;
+    }
+}

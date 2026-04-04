@@ -1,0 +1,6 @@
+@MedScribe.API_HostAddress = http://localhost:5007
+
+GET {{MedScribe.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

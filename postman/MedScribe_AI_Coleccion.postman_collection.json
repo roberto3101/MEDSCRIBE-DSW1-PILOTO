@@ -1,0 +1,425 @@
+{
+	"info": {
+		"_postman_id": "medscribe-col-001",
+		"name": "MedScribe AI - API Completa",
+		"description": "Coleccion completa de endpoints para MedScribe AI.\nGateway C# (:5000) + Servicio IA Python (:8000)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "01. Autenticacion",
+			"item": [
+				{
+					"name": "Iniciar Sesion (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"correoElectronico\": \"{{correo_admin}}\",\n\t\"contrasena\": \"{{password_admin}}\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/autenticacion/iniciar-sesion",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "autenticacion", "iniciar-sesion"]
+						}
+					}
+				},
+				{
+					"name": "Iniciar Sesion (Medico)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"correoElectronico\": \"{{correo_medico}}\",\n\t\"contrasena\": \"{{password_medico}}\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/autenticacion/iniciar-sesion",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "autenticacion", "iniciar-sesion"]
+						}
+					}
+				},
+				{
+					"name": "Registrar Nuevo Medico",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nombreCompleto\": \"Ana Martinez Campos\",\n\t\"correoElectronico\": \"ana.martinez@medscribe.pe\",\n\t\"contrasena\": \"Medico2026!\",\n\t\"rolDelSistema\": \"Medico\",\n\t\"especialidadMedica\": \"Pediatria\",\n\t\"numeroColegiaturaDelPeru\": \"CMP-98765\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/autenticacion/registro",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "autenticacion", "registro"]
+						}
+					}
+				},
+				{
+					"name": "Registrar Recepcionista",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nombreCompleto\": \"Laura Diaz Perez\",\n\t\"correoElectronico\": \"laura.diaz@medscribe.pe\",\n\t\"contrasena\": \"Recep2026!\",\n\t\"rolDelSistema\": \"Recepcionista\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/autenticacion/registro",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "autenticacion", "registro"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "02. Pacientes",
+			"item": [
+				{
+					"name": "Listar Todos los Pacientes",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes"]
+						}
+					}
+				},
+				{
+					"name": "Buscar Paciente por ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes/{{id_paciente}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes", "{{id_paciente}}"]
+						}
+					}
+				},
+				{
+					"name": "Buscar Paciente por DNI",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes/documento/72345678",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes", "documento", "72345678"]
+						}
+					}
+				},
+				{
+					"name": "Crear Nuevo Paciente",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nombreDelPaciente\": \"Pedro\",\n\t\"apellidoDelPaciente\": \"Ramirez Huaman\",\n\t\"numeroDocumentoIdentidad\": \"56789012\",\n\t\"tipoDocumentoIdentidad\": \"DNI\",\n\t\"fechaDeNacimiento\": \"1978-08-22\",\n\t\"sexoBiologico\": \"Masculino\",\n\t\"telefonoDeContacto\": \"934567890\",\n\t\"correoElectronico\": \"pedro.ramirez@gmail.com\",\n\t\"direccionDomiciliaria\": \"Av. Brasil 456, Lima\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes"]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Paciente",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nombreDelPaciente\": \"Maria Elena\",\n\t\"apellidoDelPaciente\": \"Garcia Lopez\",\n\t\"numeroDocumentoIdentidad\": \"72345678\",\n\t\"tipoDocumentoIdentidad\": \"DNI\",\n\t\"fechaDeNacimiento\": \"1990-05-15\",\n\t\"sexoBiologico\": \"Femenino\",\n\t\"telefonoDeContacto\": \"987654321\",\n\t\"correoElectronico\": \"maria.elena.garcia@gmail.com\",\n\t\"direccionDomiciliaria\": \"Av. Arequipa 1234, Miraflores, Lima\"\n}"
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes/{{id_paciente}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes", "{{id_paciente}}"]
+						}
+					}
+				},
+				{
+					"name": "Desactivar Paciente",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{gateway_url}}/api/pacientes/{{id_paciente}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "pacientes", "{{id_paciente}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "03. Consultas",
+			"item": [
+				{
+					"name": "Listar Consultas por Medico",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/consultas/medico/{{id_medico}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "consultas", "medico", "{{id_medico}}"]
+						}
+					}
+				},
+				{
+					"name": "Buscar Consulta por ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/consultas/{{id_consulta}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "consultas", "{{id_consulta}}"]
+						}
+					}
+				},
+				{
+					"name": "Crear Consulta con Audio",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{"key": "archivoDeAudio", "type": "file", "src": ""},
+								{"key": "idMedicoResponsable", "value": "{{id_medico}}", "type": "text"},
+								{"key": "idPacienteAtendido", "value": "{{id_paciente}}", "type": "text"},
+								{"key": "especialidadMedicaAplicada", "value": "Medicina General", "type": "text"},
+								{"key": "tipoDocumentoClinico", "value": "SOAP", "type": "text"}
+							]
+						},
+						"url": {
+							"raw": "{{gateway_url}}/api/consultas",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "consultas"]
+						}
+					}
+				},
+				{
+					"name": "Aprobar Consulta y Documentos",
+					"request": {
+						"method": "PUT",
+						"url": {
+							"raw": "{{gateway_url}}/api/consultas/{{id_consulta}}/aprobar",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "consultas", "{{id_consulta}}", "aprobar"]
+						}
+					}
+				},
+				{
+					"name": "Rechazar Consulta",
+					"request": {
+						"method": "PUT",
+						"url": {
+							"raw": "{{gateway_url}}/api/consultas/{{id_consulta}}/rechazar",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "consultas", "{{id_consulta}}", "rechazar"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "04. Documentos",
+			"item": [
+				{
+					"name": "Listar Documentos por Medico",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/documentos/medico/{{id_medico}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "documentos", "medico", "{{id_medico}}"]
+						}
+					}
+				},
+				{
+					"name": "Buscar Documento por ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/documentos/{{id_documento}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "documentos", "{{id_documento}}"]
+						}
+					}
+				},
+				{
+					"name": "Listar Documentos por Consulta",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/documentos/consulta/{{id_consulta}}",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "documentos", "consulta", "{{id_consulta}}"]
+						}
+					}
+				},
+				{
+					"name": "Descargar Documento",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{gateway_url}}/api/documentos/{{id_documento}}/descargar",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "documentos", "{{id_documento}}", "descargar"]
+						}
+					}
+				},
+				{
+					"name": "Aprobar Documento",
+					"request": {
+						"method": "PUT",
+						"url": {
+							"raw": "{{gateway_url}}/api/documentos/{{id_documento}}/aprobar",
+							"host": ["{{gateway_url}}"],
+							"path": ["api", "documentos", "{{id_documento}}", "aprobar"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "05. Servicio IA (Python)",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{ia_url}}/",
+							"host": ["{{ia_url}}"],
+							"path": [""]
+						}
+					}
+				},
+				{
+					"name": "Transcribir Audio",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{"key": "archivo", "type": "file", "src": ""}
+							]
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/transcribir",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "transcribir"]
+						}
+					}
+				},
+				{
+					"name": "Procesar Transcripcion (SOAP)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"transcripcion\": \"Paciente masculino de 45 anos acude por dolor en el pecho desde hace 2 dias, refiere que el dolor se intensifica al hacer esfuerzo fisico. Presion arterial 140 sobre 90, frecuencia cardiaca 88. Se diagnostica hipertension arterial esencial. Se indica enalapril 10 miligramos cada 12 horas por 30 dias y control en 2 semanas.\",\n\t\"especialidad\": \"cardiologia\",\n\t\"tipo_documento\": \"SOAP\"\n}"
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/procesar",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "procesar"]
+						}
+					}
+				},
+				{
+					"name": "Procesar Transcripcion (Historia Clinica)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"transcripcion\": \"Paciente nina de 5 anos traida por su madre por fiebre de 39 grados desde hace 2 dias, tos seca y dolor de garganta. Antecedentes: vacunas completas segun calendario. Examen fisico: faringe eritematosa, amigdalas hipertroficas con exudado blanquecino. Diagnostico faringoamigdalitis aguda. Se prescribe amoxicilina suspension 250 miligramos cada 8 horas por 7 dias y paracetamol gotas 15 gotas cada 6 horas si fiebre. Control en 3 dias.\",\n\t\"especialidad\": \"pediatria\",\n\t\"tipo_documento\": \"HistoriaClinica\"\n}"
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/procesar",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "procesar"]
+						}
+					}
+				},
+				{
+					"name": "Procesar Transcripcion (Receta)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"transcripcion\": \"Paciente femenina de 32 anos con infeccion urinaria. Diagnostico cistitis aguda no complicada. Receto ciprofloxacino 500 miligramos cada 12 horas por 5 dias, y ibuprofeno 400 miligramos cada 8 horas por 3 dias si dolor. Tomar abundante liquido. Control en una semana si persisten sintomas.\",\n\t\"especialidad\": \"general\",\n\t\"tipo_documento\": \"Receta\"\n}"
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/procesar",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "procesar"]
+						}
+					}
+				},
+				{
+					"name": "Generar PDF desde Nota Clinica",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nota_clinica\": \"# NOTA SOAP\\n\\n## S - Subjetivo\\nPaciente masculino de 45 anos refiere dolor toracico de 2 dias de evolucion.\\n\\n## O - Objetivo\\nPA: 140/90 mmHg, FC: 88 lpm\\n\\n## A - Analisis\\nHipertension arterial esencial (CIE-10: I10)\\n\\n## P - Plan\\n- Enalapril 10mg cada 12 horas por 30 dias\\n- Control en 2 semanas\",\n\t\"tipo_documento\": \"SOAP\"\n}"
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/generar-pdf",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "generar-pdf"]
+						}
+					}
+				},
+				{
+					"name": "Generar Word desde Nota Clinica",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"nota_clinica\": \"# RECETA MEDICA\\n\\n## Diagnostico\\nCistitis aguda no complicada (CIE-10: N30.0)\\n\\n## Prescripcion\\n- Ciprofloxacino 500mg VO cada 12h x 5 dias\\n- Ibuprofeno 400mg VO cada 8h x 3 dias si dolor\\n\\n## Indicaciones\\n- Tomar abundante liquido\\n- Control en 1 semana si persisten sintomas\",\n\t\"tipo_documento\": \"Receta\"\n}"
+						},
+						"url": {
+							"raw": "{{ia_url}}/api/ia/generar-word",
+							"host": ["{{ia_url}}"],
+							"path": ["api", "ia", "generar-word"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
