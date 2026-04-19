@@ -26,5 +26,10 @@ soundfile==0.12.1
 scipy>=1.11,<2.0
 
 # Diarizacion local con Pyannote (Torch se instala aparte en el Dockerfile
-# usando la rueda CPU-only para mantener la imagen pequena)
+# usando la rueda CPU-only para mantener la imagen pequena).
+# Pin de huggingface_hub<1.0 porque pyannote 3.3.2 llama internamente a
+# hf_hub_download con `use_auth_token=`, kwarg que huggingface_hub 1.0+
+# elimino. pyannote 4.x lo arregla pero exige torch 2.8+ y torchcodec,
+# lo que rompe la rueda CPU-only 2.5.1.
 pyannote.audio==3.3.2
+huggingface_hub<1.0

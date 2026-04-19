@@ -165,7 +165,6 @@ AI_EXTRA_5_API_KEY=tu-token-de-huggingface
 3. Aceptar terminos en estos modelos:
    - https://huggingface.co/pyannote/speaker-diarization-3.1
    - https://huggingface.co/pyannote/segmentation-3.0
-   - https://huggingface.co/pyannote/speaker-diarization-community-1
 
 **4. Crear la base de datos**
 
