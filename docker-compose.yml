@@ -1,35 +1,111 @@
-version: '3.8'
-
 services:
-  gateway:
-    build: ./gateway-dotnet/src/MedScribe.API
-    ports:
-      - "5000:5000"
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: medscribe-sqlserver
     environment:
-      - ASPNETCORE_URLS=http://+:5000
-      - ConnectionStrings__sql=Server=sqlserver;Database=MedScribeDB;User Id=sa;Password=MedScribe2026!;TrustServerCertificate=True;
-      - Microservicios__ServicioIA=http://servicio-ia:8000
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:-MedScribe2026!}
+      MSSQL_PID: Express
+    ports:
+      # Expuesto en 1434 para evitar choque con un SQL Server local en 1433.
+      # Desde el host (SSMS, etc): conectar a localhost,1434
+      # Entre contenedores sigue siendo sqlserver:1433
+      - "${SQL_HOST_PORT:-1434}:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD:-MedScribe2026!}" -C -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - medscribe
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: medscribe-db-init
     depends_on:
-      - sqlserver
-      - servicio-ia
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: ${SA_PASSWORD:-MedScribe2026!}
+    volumes:
+      - ./base-datos/migraciones:/migraciones:ro
+      - ./base-datos/storedProcedures:/sp:ro
+    command: >
+      bash -c '
+      echo "Ejecutando migracion principal..." &&
+      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$$SA_PASSWORD" -C -I -b -i /migraciones/MedScribeDB_MigracionCompleta.sql &&
+      echo "Migracion completada." &&
+      for archivo in /sp/*.sql; do
+        if [ -f "$$archivo" ]; then
+          echo "Ejecutando $$archivo..." &&
+          /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$$SA_PASSWORD" -C -I -d MedScribeDB -i "$$archivo" || exit 1
+        fi
+      done &&
+      echo "Base de datos lista."
+      '
+    networks:
+      - medscribe
+    restart: "no"
 
   servicio-ia:
     build: ./servicio-ia
+    container_name: medscribe-servicio-ia
     ports:
-      - "8000:8000"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      SA_PASSWORD: "MedScribe2026!"
-      ACCEPT_EULA: "Y"
-    ports:
-      - "1433:1433"
+      - "${AI_SERVICE_PORT:-8000}:8000"
+    env_file:
+      - .env
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - ./servicio-ia/documentos-salida:/app/documentos-salida
+      - hf_cache:/app/.hf_cache
+      - torch_cache:/app/.torch_cache
+    networks:
+      - medscribe
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./gateway-dotnet/src/MedScribe.API
+    container_name: medscribe-gateway
+    ports:
+      - "${GATEWAY_PORT:-5000}:5000"
+    environment:
+      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__sql: "Server=sqlserver;Database=MedScribeDB;User Id=sa;Password=${SA_PASSWORD:-MedScribe2026!};TrustServerCertificate=True;"
+      Microservicios__ServicioIA: http://servicio-ia:8000
+      OrigenesPermitidos__0: http://localhost:3000
+      OrigenesPermitidos__1: http://localhost
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      servicio-ia:
+        condition: service_started
+    volumes:
+      - gateway_documentos:/app/documentos-generados
+    networks:
+      - medscribe
+    restart: unless-stopped
+
+  cliente-web:
+    build: ./cliente-web
+    container_name: medscribe-cliente-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    networks:
+      - medscribe
+    restart: unless-stopped
 
 volumes:
   sqlserver_data:
+  gateway_documentos:
+  hf_cache:
+  torch_cache:
+
+networks:
+  medscribe:
+    driver: bridge
