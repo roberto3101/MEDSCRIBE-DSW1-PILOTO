@@ -416,7 +416,8 @@ BEGIN
     SELECT u.IdUsuario, u.IdClinica, u.NombreCompleto, u.CorreoElectronico, u.RolDelSistema,
            u.EstaCuentaActiva, u.IdRol,
            r.NombreDelRol, r.PermisosEnFormatoJSON,
-           c.NombreComercial AS NombreClinica
+           c.NombreComercial AS NombreClinica,
+           CAST('' AS VARCHAR(MAX)) AS PermisosPersonalizadosJSON
     FROM Usuarios u
     LEFT JOIN RolesDeClinica r ON u.IdClinica = r.IdClinica AND u.IdRol = r.IdRol
     LEFT JOIN Clinicas c ON u.IdClinica = c.IdClinica
