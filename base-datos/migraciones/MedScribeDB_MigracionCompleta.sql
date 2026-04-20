@@ -147,6 +147,7 @@ CREATE TABLE Usuarios (
     EstaCuentaActiva                BIT NOT NULL DEFAULT 1,
     DebeCambiarContrasena           BIT NOT NULL DEFAULT 1,
     IdRol                           INT NULL,
+    PermisosPersonalizadosJSON      VARCHAR(MAX) NULL,
     FotoPerfilUrl                   VARCHAR(500) NULL,
     UltimoAcceso                    DATETIME NULL,
     FechaRegistroEnSistema          DATETIME NOT NULL DEFAULT GETDATE(),
@@ -352,6 +353,7 @@ CREATE TABLE RolesDeClinica (
     DescripcionDelRol           VARCHAR(200) NULL,
     PermisosEnFormatoJSON       VARCHAR(MAX) NOT NULL DEFAULT '{}',
     EsRolBase                   BIT NOT NULL DEFAULT 0,
+    EstaActivo                  BIT NOT NULL DEFAULT 1,
     FechaCreacion               DATETIME NOT NULL DEFAULT GETDATE(),
 
     CONSTRAINT PK_RolesDeClinica PRIMARY KEY (IdClinica, IdRol),
@@ -1269,4 +1271,32 @@ INSERT INTO SeccionesDePlantilla (IdClinica, IdPlantilla, NombreDeLaSeccion, Des
 (1, 3, 'Prescripcion', 'Medicamentos con dosis y frecuencia', 2, 1, 'TextoLibre', 'Extrae cada medicamento con nombre generico, dosis, via, frecuencia y duracion'),
 (1, 3, 'Indicaciones Generales', 'Recomendaciones al paciente', 3, 0, 'TextoLibre', 'Genera recomendaciones generales para el paciente'),
 (1, 3, 'Proxima Cita', 'Fecha sugerida para control', 4, 0, 'Fecha', 'Extrae la fecha sugerida para la proxima cita');
+GO
+
+-- =============================================================================
+-- MIGRACIONES IDEMPOTENTES PARA BASES DE DATOS EXISTENTES
+-- (Estas se ejecutan siempre, incluso si la BD ya existia.)
+-- =============================================================================
+SET NOEXEC OFF;
+GO
+
+USE MedScribeDB;
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.Usuarios') AND name = 'PermisosPersonalizadosJSON'
+)
+BEGIN
+    ALTER TABLE dbo.Usuarios ADD PermisosPersonalizadosJSON VARCHAR(MAX) NULL;
+END
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.RolesDeClinica') AND name = 'EstaActivo'
+)
+BEGIN
+    ALTER TABLE dbo.RolesDeClinica ADD EstaActivo BIT NOT NULL CONSTRAINT DF_RolesDeClinica_EstaActivo DEFAULT 1;
+END
 GO

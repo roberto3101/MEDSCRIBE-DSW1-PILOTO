@@ -70,6 +70,23 @@ namespace MedScribe.API.Controladores
             });
         }
 
+        [HttpPost("cambiar-contrasena")]
+        public IActionResult CambiarContrasenaDeUsuario([FromBody] PeticionCambiarContrasena peticion)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                _usuarioDAO.CambiarContrasenaDeUsuario(peticion.IdUsuario, peticion.ContrasenaActual, peticion.ContrasenaNueva);
+                return Ok(new { mensaje = "Contrasena actualizada correctamente" });
+            }
+            catch (SqlException error) when (error.Number == 50000)
+            {
+                return BadRequest(new { mensaje = error.Message });
+            }
+        }
+
         [HttpPost("registro")]
         public IActionResult RegistrarNuevoUsuarioEnSistema([FromBody] PeticionRegistrarUsuario peticion)
         {

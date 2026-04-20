@@ -8,5 +8,6 @@ namespace MedScribe.API.Contratos
         int RegistrarNuevoUsuarioEnSistema(Usuario usuario);
         int RegistrarUsuarioConMedicoEnTransaccion(Usuario usuario, Medico medico);
         Usuario? BuscarUsuarioPorCorreoElectronico(string correoElectronico);
+        void CambiarContrasenaDeUsuario(int idUsuario, string contrasenaActual, string contrasenaNueva);
     }
 }

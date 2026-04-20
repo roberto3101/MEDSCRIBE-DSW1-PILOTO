@@ -5,6 +5,7 @@ from app.servicios.generador_pdf import generar_pdf_desde_nota_clinica
 from app.servicios.generador_word import generar_word_desde_nota_clinica
 from app.servicios.configuracion_documentos import obtener_configuracion_de_documentos
 import io
+import json
 import os
 import uuid
 from datetime import datetime
@@ -33,6 +34,22 @@ def _config_con_paciente(peticion: PeticionGeneracion) -> dict:
     return config
 
 
+def _guardar_metadata_sidecar(nombre_archivo: str, metadata: dict) -> None:
+    try:
+        nombre_base = nombre_archivo.rsplit(".", 1)[0]
+        ruta_meta = os.path.join(DIRECTORIO_DOCUMENTOS, f"{nombre_base}.meta.json")
+        with open(ruta_meta, "w", encoding="utf-8") as archivo_meta:
+            json.dump(metadata, archivo_meta, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def _extraer_nombre_paciente_de_peticion(peticion: PeticionGeneracion) -> str:
+    if peticion.paciente and peticion.paciente.nombre_completo:
+        return peticion.paciente.nombre_completo
+    return ""
+
+
 @router.post("/generar-pdf")
 async def generar_documento_pdf_desde_nota(peticion: PeticionGeneracion):
     try:
@@ -47,6 +64,13 @@ async def generar_documento_pdf_desde_nota(peticion: PeticionGeneracion):
 
     with open(ruta_completa, "wb") as archivo:
         archivo.write(archivo_bytes)
+
+    _guardar_metadata_sidecar(nombre_archivo, {
+        "nombre_paciente": _extraer_nombre_paciente_de_peticion(peticion),
+        "tipo_documento": peticion.tipo_documento,
+        "especialidad": peticion.especialidad or "",
+        "fecha_generacion": datetime.now().isoformat(),
+    })
 
     return StreamingResponse(
         io.BytesIO(archivo_bytes),
@@ -74,6 +98,13 @@ async def generar_documento_word_desde_nota(peticion: PeticionGeneracion):
     with open(ruta_completa, "wb") as archivo:
         archivo.write(archivo_bytes)
 
+    _guardar_metadata_sidecar(nombre_archivo, {
+        "nombre_paciente": _extraer_nombre_paciente_de_peticion(peticion),
+        "tipo_documento": peticion.tipo_documento,
+        "especialidad": peticion.especialidad or "",
+        "fecha_generacion": datetime.now().isoformat(),
+    })
+
     return StreamingResponse(
         io.BytesIO(archivo_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -90,6 +121,16 @@ async def generar_documento_guardar_en_disco_y_retornar_metadata(peticion: Petic
     _asegurar_directorio_existe()
     archivos_generados = []
 
+    metadata_comun = {
+        "nombre_paciente": peticion.nombre_paciente or "",
+        "tipo_documento": peticion.tipo_documento,
+        "especialidad": peticion.especialidad or "",
+        "id_consulta": peticion.id_consulta,
+        "id_medico": peticion.id_medico,
+        "id_paciente": peticion.id_paciente,
+        "fecha_generacion": datetime.now().isoformat(),
+    }
+
     try:
         config = obtener_configuracion_de_documentos()
         nombre_pdf = _generar_nombre_archivo(peticion.tipo_documento, "pdf")
@@ -97,6 +138,7 @@ async def generar_documento_guardar_en_disco_y_retornar_metadata(peticion: Petic
         bytes_pdf = generar_pdf_desde_nota_clinica(peticion.nota_clinica, peticion.tipo_documento, config)
         with open(ruta_pdf, "wb") as f:
             f.write(bytes_pdf)
+        _guardar_metadata_sidecar(nombre_pdf, metadata_comun)
         archivos_generados.append({
             "formato": "PDF",
             "nombre_archivo": nombre_pdf,
@@ -112,6 +154,7 @@ async def generar_documento_guardar_en_disco_y_retornar_metadata(peticion: Petic
         bytes_word = generar_word_desde_nota_clinica(peticion.nota_clinica, peticion.tipo_documento, config)
         with open(ruta_word, "wb") as f:
             f.write(bytes_word)
+        _guardar_metadata_sidecar(nombre_word, metadata_comun)
         archivos_generados.append({
             "formato": "Word",
             "nombre_archivo": nombre_word,

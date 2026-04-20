@@ -6,7 +6,8 @@ CREATE OR ALTER PROCEDURE usp_Roles_ListarPorClinica
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT IdRol, IdClinica, NombreDelRol, DescripcionDelRol, PermisosEnFormatoJSON, EsRolBase, FechaCreacion
+    SELECT IdRol, IdClinica, NombreDelRol, DescripcionDelRol, PermisosEnFormatoJSON,
+           EsRolBase, ISNULL(EstaActivo, 1) AS EstaActivo, FechaCreacion
     FROM RolesDeClinica WHERE IdClinica = @IdClinica;
 END
 GO

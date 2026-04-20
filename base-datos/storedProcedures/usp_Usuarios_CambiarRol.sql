@@ -9,5 +9,6 @@ BEGIN
     DECLARE @NombreRol VARCHAR(50);
     SELECT @NombreRol = NombreDelRol FROM RolesDeClinica WHERE IdRol = @IdRol;
     UPDATE Usuarios SET IdRol = @IdRol, RolDelSistema = @NombreRol WHERE IdUsuario = @IdUsuario;
+    SELECT @@ROWCOUNT AS RowsAffected;
 END
 GO

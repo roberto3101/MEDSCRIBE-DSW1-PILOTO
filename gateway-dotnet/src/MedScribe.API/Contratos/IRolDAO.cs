@@ -7,5 +7,6 @@ namespace MedScribe.API.Contratos
         IEnumerable<RolDeClinica> ListarRolesPorClinica();
         int CrearRol(string nombre, string descripcion, string permisosJson);
         int ActualizarRol(int idRol, string nombre, string descripcion, string permisosJson);
+        int CambiarEstadoDelRol(int idRol, bool estaActivo);
     }
 }

@@ -26,12 +26,34 @@ export default function PaginaPerfil() {
       establecerError('Las contrasenas no coinciden')
       return
     }
+    if (!usuario?.idUsuario) {
+      establecerError('No se pudo identificar al usuario')
+      return
+    }
 
-    establecerMensajeExito('Contrasena actualizada correctamente')
-    establecerContrasenaActual('')
-    establecerContrasenaNueva('')
-    establecerConfirmarContrasena('')
-    setTimeout(() => establecerMensajeExito(''), 3000)
+    try {
+      const respuesta = await fetch('/api/autenticacion/cambiar-contrasena', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idUsuario: usuario.idUsuario,
+          contrasenaActual,
+          contrasenaNueva,
+        }),
+      })
+      if (!respuesta.ok) {
+        const datos = await respuesta.json().catch(() => ({}))
+        establecerError(datos?.mensaje || 'Error al actualizar la contrasena')
+        return
+      }
+      establecerMensajeExito('Contrasena actualizada correctamente')
+      establecerContrasenaActual('')
+      establecerContrasenaNueva('')
+      establecerConfirmarContrasena('')
+      setTimeout(() => establecerMensajeExito(''), 3000)
+    } catch {
+      establecerError('Error de red al cambiar la contrasena')
+    }
   }
 
   return (

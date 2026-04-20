@@ -8,6 +8,7 @@ namespace MedScribe.API.Modelos.Entidades
         public string DescripcionDelRol { get; set; } = string.Empty;
         public string PermisosEnFormatoJSON { get; set; } = string.Empty;
         public bool EsRolBase { get; set; }
+        public bool EstaActivo { get; set; } = true;
         public DateTime FechaCreacion { get; set; }
     }
 }

@@ -7,5 +7,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE Pacientes SET EstaPacienteActivo = 0, FechaEliminacion = GETDATE() WHERE IdPaciente = @IdPaciente;
+    SELECT @@ROWCOUNT AS RowsAffected;
 END
 GO

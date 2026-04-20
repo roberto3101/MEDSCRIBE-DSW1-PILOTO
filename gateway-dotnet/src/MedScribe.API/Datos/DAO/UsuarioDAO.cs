@@ -67,6 +67,16 @@ namespace MedScribe.API.Datos.DAO
             return resultado != null ? Convert.ToInt32(resultado) : 0;
         }
 
+        public void CambiarContrasenaDeUsuario(int idUsuario, string contrasenaActual, string contrasenaNueva)
+        {
+            using var conexion = _contexto.AbrirConexionConContextoDeClinica();
+            using var comando = new SqlCommand("usp_Usuarios_CambiarContrasena", conexion) { CommandType = CommandType.StoredProcedure };
+            comando.Parameters.Add(new SqlParameter("@IdUsuario", SqlDbType.Int) { Value = idUsuario });
+            comando.Parameters.Add(new SqlParameter("@ContrasenaActual", SqlDbType.VarChar, 255) { Value = contrasenaActual });
+            comando.Parameters.Add(new SqlParameter("@ContrasenaNueva", SqlDbType.VarChar, 255) { Value = contrasenaNueva });
+            comando.ExecuteNonQuery();
+        }
+
         public Usuario? BuscarUsuarioPorCorreoElectronico(string correoElectronico)
         {
             using var conexion = _contexto.AbrirConexionConContextoDeClinica();

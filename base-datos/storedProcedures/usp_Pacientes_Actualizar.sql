@@ -26,5 +26,6 @@ BEGIN
         FechaDeNacimiento = @FechaNacimiento, SexoBiologico = @Sexo,
         TelefonoDeContacto = @Telefono, CorreoElectronico = @Correo, DireccionDomiciliaria = @Direccion
     WHERE IdPaciente = @IdPaciente;
+    SELECT @@ROWCOUNT AS RowsAffected;
 END
 GO

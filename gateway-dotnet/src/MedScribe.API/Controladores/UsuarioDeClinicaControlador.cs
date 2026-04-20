@@ -11,11 +11,13 @@ namespace MedScribe.API.Controladores
     public class UsuarioDeClinicaControlador : ControllerBase
     {
         private readonly IUsuarioDeClinicaDAO _usuarioDeClinicaDAO;
+        private readonly IRolDAO _rolDAO;
         private readonly ProveedorContextoClinica _contexto;
 
-        public UsuarioDeClinicaControlador(IUsuarioDeClinicaDAO usuarioDeClinicaDAO, ProveedorContextoClinica contexto)
+        public UsuarioDeClinicaControlador(IUsuarioDeClinicaDAO usuarioDeClinicaDAO, IRolDAO rolDAO, ProveedorContextoClinica contexto)
         {
             _usuarioDeClinicaDAO = usuarioDeClinicaDAO;
+            _rolDAO = rolDAO;
             _contexto = contexto;
         }
 
@@ -32,11 +34,18 @@ namespace MedScribe.API.Controladores
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var rolElegido = _rolDAO.ListarRolesPorClinica().FirstOrDefault(r => r.IdRol == peticion.IdRol);
+            if (rolElegido == null)
+                return BadRequest(new { mensaje = "El rol indicado no existe en esta clinica" });
+
+            var rolDelSistema = MapearRolBaseDelSistema(rolElegido.NombreDelRol);
+
             int idUsuario = _usuarioDeClinicaDAO.CrearUsuarioEnClinica(
                 peticion.NombreCompleto,
                 peticion.CorreoElectronico,
                 peticion.Contrasena,
-                peticion.RolDelSistema
+                rolDelSistema,
+                peticion.IdRol
             );
 
             if (idUsuario > 0)
@@ -50,7 +59,7 @@ namespace MedScribe.API.Controladores
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int resultado = _usuarioDeClinicaDAO.CambiarRolDeUsuario(idUsuario, peticion.NuevoRol);
+            int resultado = _usuarioDeClinicaDAO.CambiarRolDeUsuario(idUsuario, peticion.IdRol);
             if (resultado > 0)
                 return Ok(new { mensaje = "Rol actualizado correctamente" });
             return NotFound(new { mensaje = "Usuario no encontrado" });
@@ -82,9 +91,16 @@ namespace MedScribe.API.Controladores
             using var conexion = _contexto.AbrirConexionConContextoDeClinica();
             using var comando = new SqlCommand("usp_Usuarios_ActualizarPermisosPersonalizados", conexion) { CommandType = CommandType.StoredProcedure };
             comando.Parameters.Add(new SqlParameter("@IdUsuario", SqlDbType.Int) { Value = idUsuario });
-            comando.Parameters.Add(new SqlParameter("@PermisosPersonalizadosJSON", SqlDbType.VarChar) { Value = peticion.PermisosPersonalizadosJSON });
+            comando.Parameters.Add(new SqlParameter("@PermisosPersonalizadosJSON", SqlDbType.VarChar, -1) { Value = peticion.PermisosPersonalizadosJSON ?? "{}" });
             comando.ExecuteNonQuery();
             return Ok(new { mensaje = "Permisos personalizados guardados" });
+        }
+
+        private static string MapearRolBaseDelSistema(string nombreDelRol)
+        {
+            if (string.Equals(nombreDelRol, "Administrador", StringComparison.OrdinalIgnoreCase)) return "Administrador";
+            if (string.Equals(nombreDelRol, "Recepcionista", StringComparison.OrdinalIgnoreCase)) return "Recepcionista";
+            return "Medico";
         }
     }
 
@@ -108,13 +124,13 @@ namespace MedScribe.API.Controladores
         [System.ComponentModel.DataAnnotations.StringLength(255, MinimumLength = 8)]
         public string Contrasena { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El rol es obligatorio")]
-        public string RolDelSistema { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un rol")]
+        public int IdRol { get; set; }
     }
 
     public class PeticionCambiarRol
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nuevo rol es obligatorio")]
-        public string NuevoRol { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un rol valido")]
+        public int IdRol { get; set; }
     }
 }

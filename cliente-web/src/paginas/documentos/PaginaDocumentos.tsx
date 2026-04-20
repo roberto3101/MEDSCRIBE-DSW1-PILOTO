@@ -8,6 +8,8 @@ interface DocumentoGenerado {
   formato: string
   tamano_legible: string
   fecha_legible: string
+  nombre_paciente?: string
+  especialidad?: string
 }
 
 interface RespuestaPaginada {
@@ -97,7 +99,7 @@ export default function PaginaDocumentos() {
           <div className="flex-1 min-w-[200px] relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
             <input type="text" value={busqueda} onChange={(e) => establecerBusqueda(e.target.value)}
-              onKeyDown={buscarConEnter} placeholder="Buscar por nombre... (Enter)"
+              onKeyDown={buscarConEnter} placeholder="Buscar por paciente o archivo... (Enter)"
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
           </div>
           <select value={filtroTipo} onChange={(e) => establecerFiltroTipo(e.target.value)}
@@ -140,9 +142,17 @@ export default function PaginaDocumentos() {
                     {doc.formato}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-slate-700 truncate mb-1" title={doc.nombre_archivo}>{doc.nombre_archivo}</p>
-                <div className="flex items-center gap-3 text-xs text-slate-400 mb-4">
+                {doc.nombre_paciente ? (
+                  <>
+                    <p className="text-sm font-semibold text-slate-800 truncate mb-0.5" title={doc.nombre_paciente}>{doc.nombre_paciente}</p>
+                    <p className="text-[11px] text-slate-400 truncate mb-2" title={doc.nombre_archivo}>{doc.nombre_archivo}</p>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium text-slate-700 truncate mb-2" title={doc.nombre_archivo}>{doc.nombre_archivo}</p>
+                )}
+                <div className="flex items-center gap-3 text-xs text-slate-400 mb-4 flex-wrap">
                   <span>{doc.tipo_documento}</span><span>&bull;</span><span>{doc.tamano_legible}</span><span>&bull;</span><span>{doc.fecha_legible}</span>
+                  {doc.especialidad ? (<><span>&bull;</span><span className="truncate">{doc.especialidad}</span></>) : null}
                 </div>
                 <button onClick={() => descargarDocumento(doc.nombre_archivo)}
                   className="w-full flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 font-medium hover:bg-medico-50 hover:text-medico-600 hover:border-medico-200 transition-all opacity-0 group-hover:opacity-100">

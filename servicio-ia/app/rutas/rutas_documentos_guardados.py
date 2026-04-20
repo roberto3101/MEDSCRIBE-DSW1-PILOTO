@@ -1,11 +1,24 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+import json
 import os
 from datetime import datetime
 
 router = APIRouter()
 
 DIRECTORIO_DOCUMENTOS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "gateway-dotnet", "src", "MedScribe.API", "documentos-generados")
+
+
+def _leer_metadata_sidecar(nombre_archivo: str) -> dict:
+    nombre_base = nombre_archivo.rsplit(".", 1)[0]
+    ruta_meta = os.path.join(DIRECTORIO_DOCUMENTOS, f"{nombre_base}.meta.json")
+    if not os.path.exists(ruta_meta):
+        return {}
+    try:
+        with open(ruta_meta, "r", encoding="utf-8") as archivo_meta:
+            return json.load(archivo_meta)
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 @router.get("/listar")
@@ -38,12 +51,21 @@ async def listar_documentos_generados(
         tipo_documento = partes[0] if len(partes) > 0 else "Desconocido"
         formato_archivo = "PDF" if extension == "pdf" else "Word"
 
+        metadata = _leer_metadata_sidecar(nombre)
+        nombre_paciente = metadata.get("nombre_paciente", "") or ""
+        especialidad = metadata.get("especialidad", "") or ""
+
         if tipo and tipo_documento.lower() != tipo.lower():
             continue
         if formato and formato_archivo.lower() != formato.lower():
             continue
-        if busqueda and busqueda.lower() not in nombre.lower():
-            continue
+        if busqueda:
+            termino = busqueda.lower()
+            en_nombre_archivo = termino in nombre.lower()
+            en_paciente = termino in nombre_paciente.lower()
+            en_especialidad = termino in especialidad.lower()
+            if not (en_nombre_archivo or en_paciente or en_especialidad):
+                continue
 
         documentos.append({
             "nombre_archivo": nombre,
@@ -53,6 +75,8 @@ async def listar_documentos_generados(
             "tamano_legible": f"{tamano / 1024:.1f} KB" if tamano < 1048576 else f"{tamano / 1048576:.1f} MB",
             "fecha_generacion": fecha_modificacion.isoformat(),
             "fecha_legible": fecha_modificacion.strftime("%d/%m/%Y %H:%M"),
+            "nombre_paciente": nombre_paciente,
+            "especialidad": especialidad,
         })
 
     total = len(documentos)

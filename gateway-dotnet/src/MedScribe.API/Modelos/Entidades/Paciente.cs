@@ -31,11 +31,9 @@ namespace MedScribe.API.Modelos.Entidades
         public string SexoBiologico { get; set; } = string.Empty;
 
         [StringLength(20)]
-        [Phone]
         public string TelefonoDeContacto { get; set; } = string.Empty;
 
         [StringLength(150)]
-        [EmailAddress]
         public string CorreoElectronico { get; set; } = string.Empty;
 
         [StringLength(300)]

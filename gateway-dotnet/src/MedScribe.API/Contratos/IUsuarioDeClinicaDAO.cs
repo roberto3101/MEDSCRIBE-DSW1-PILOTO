@@ -5,7 +5,7 @@ namespace MedScribe.API.Contratos
     public interface IUsuarioDeClinicaDAO
     {
         IEnumerable<Usuario> ListarUsuariosPorClinica();
-        int CrearUsuarioEnClinica(string nombreCompleto, string correoElectronico, string contrasena, string rolDelSistema);
-        int CambiarRolDeUsuario(int idUsuario, string nuevoRol);
+        int CrearUsuarioEnClinica(string nombreCompleto, string correoElectronico, string contrasena, string rolDelSistema, int idRol);
+        int CambiarRolDeUsuario(int idUsuario, int idRol);
     }
 }

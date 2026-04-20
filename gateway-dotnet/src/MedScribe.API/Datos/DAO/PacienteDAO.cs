@@ -92,7 +92,8 @@ namespace MedScribe.API.Datos.DAO
             using var comando = new SqlCommand("usp_Pacientes_Actualizar", conexion) { CommandType = CommandType.StoredProcedure };
             comando.Parameters.Add(new SqlParameter("@IdPaciente", SqlDbType.Int) { Value = paciente.IdPaciente });
             AgregarParametrosDePaciente(comando, paciente);
-            return comando.ExecuteNonQuery();
+            var resultado = comando.ExecuteScalar();
+            return resultado != null ? Convert.ToInt32(resultado) : 0;
         }
 
         public int DesactivarPacientePorId(int idPaciente)
@@ -100,7 +101,8 @@ namespace MedScribe.API.Datos.DAO
             using var conexion = _contexto.AbrirConexionConContextoDeClinica();
             using var comando = new SqlCommand("usp_Pacientes_Eliminar", conexion) { CommandType = CommandType.StoredProcedure };
             comando.Parameters.Add(new SqlParameter("@IdPaciente", SqlDbType.Int) { Value = idPaciente });
-            return comando.ExecuteNonQuery();
+            var resultado = comando.ExecuteScalar();
+            return resultado != null ? Convert.ToInt32(resultado) : 0;
         }
     }
 }

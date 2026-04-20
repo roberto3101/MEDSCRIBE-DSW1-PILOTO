@@ -42,6 +42,13 @@ namespace MedScribe.API.Controladores
             _rolDAO.ActualizarRol(idRol, peticion.Nombre, peticion.Descripcion, peticion.PermisosJson);
             return Ok(new { mensaje = "Rol actualizado correctamente" });
         }
+
+        [HttpPut("{idRol:int}/estado")]
+        public IActionResult CambiarEstadoDelRol(int idRol, [FromBody] PeticionCambiarEstadoRol peticion)
+        {
+            _rolDAO.CambiarEstadoDelRol(idRol, peticion.EstaActivo);
+            return Ok(new { mensaje = peticion.EstaActivo ? "Rol reactivado correctamente" : "Rol desactivado correctamente" });
+        }
     }
 
     public class PeticionRol
@@ -53,5 +60,10 @@ namespace MedScribe.API.Controladores
         public string Descripcion { get; set; } = string.Empty;
 
         public string PermisosJson { get; set; } = string.Empty;
+    }
+
+    public class PeticionCambiarEstadoRol
+    {
+        public bool EstaActivo { get; set; }
     }
 }

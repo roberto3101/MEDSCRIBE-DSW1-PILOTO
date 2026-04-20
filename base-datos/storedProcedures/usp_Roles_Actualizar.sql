@@ -6,7 +6,10 @@ CREATE OR ALTER PROCEDURE usp_Roles_Actualizar
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE RolesDeClinica SET NombreDelRol = @NombreDelRol, DescripcionDelRol = @DescripcionDelRol, PermisosEnFormatoJSON = @PermisosEnFormatoJSON
-    WHERE IdRol = @IdRol AND EsRolBase = 0;
+    UPDATE RolesDeClinica
+       SET NombreDelRol = CASE WHEN EsRolBase = 1 THEN NombreDelRol ELSE @NombreDelRol END,
+           DescripcionDelRol = @DescripcionDelRol,
+           PermisosEnFormatoJSON = @PermisosEnFormatoJSON
+     WHERE IdRol = @IdRol;
 END
 GO
