@@ -23,5 +23,7 @@ BEGIN
     INSERT INTO Pacientes (IdClinica, NombreDelPaciente, ApellidoDelPaciente, NumeroDocumentoIdentidad, TipoDocumentoIdentidad,
                           FechaDeNacimiento, SexoBiologico, TelefonoDeContacto, CorreoElectronico, DireccionDomiciliaria)
     VALUES (@IdClinica, @Nombre, @Apellido, @NumeroDocumento, @TipoDocumento, @FechaNacimiento, @Sexo, @Telefono, @Correo, @Direccion);
+
+    SELECT SCOPE_IDENTITY() AS IdPaciente;
 END
 GO

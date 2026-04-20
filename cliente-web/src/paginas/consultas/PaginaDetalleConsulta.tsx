@@ -92,10 +92,27 @@ export default function PaginaDetalleConsulta() {
 
   const descargarDocumento = async (formato: 'pdf' | 'word') => {
     const endpoint = formato === 'pdf' ? '/api/ia/generar-pdf' : '/api/ia/generar-word'
+    const cuerpoPeticion: Record<string, unknown> = {
+      nota_clinica: consulta?.notaClinicaEstructurada,
+      tipo_documento: consulta?.tipoDocumentoClinico,
+      especialidad: consulta?.especialidadMedicaAplicada || '',
+    }
+    if (paciente) {
+      cuerpoPeticion.paciente = {
+        nombre_completo: `${paciente.nombreDelPaciente ?? ''} ${paciente.apellidoDelPaciente ?? ''}`.trim(),
+        tipo_documento: paciente.tipoDocumentoIdentidad ?? '',
+        numero_documento: paciente.numeroDocumentoIdentidad ?? '',
+        sexo: paciente.sexoBiologico ?? '',
+        fecha_nacimiento: paciente.fechaDeNacimiento ?? '',
+        telefono: paciente.telefonoDeContacto ?? '',
+        correo: (paciente as any).correoElectronico ?? '',
+        direccion: (paciente as any).direccionDomiciliaria ?? '',
+      }
+    }
     const respuesta = await fetch(`http://localhost:8000${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nota_clinica: consulta?.notaClinicaEstructurada, tipo_documento: consulta?.tipoDocumentoClinico }),
+      body: JSON.stringify(cuerpoPeticion),
     })
     const blob = await respuesta.blob()
     const nombre = respuesta.headers.get('X-Nombre-Archivo') || `consulta_${id}.${formato === 'pdf' ? 'pdf' : 'docx'}`

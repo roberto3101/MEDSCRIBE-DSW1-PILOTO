@@ -24,10 +24,19 @@ def _generar_nombre_archivo(tipo_documento: str, formato: str) -> str:
     return f"MedScribe_{tipo_documento}_{fecha}_{identificador}.{formato}"
 
 
+def _config_con_paciente(peticion: PeticionGeneracion) -> dict:
+    config = obtener_configuracion_de_documentos()
+    if peticion.paciente:
+        config["paciente"] = peticion.paciente.model_dump()
+    if peticion.especialidad:
+        config["especialidad_consulta"] = peticion.especialidad
+    return config
+
+
 @router.post("/generar-pdf")
 async def generar_documento_pdf_desde_nota(peticion: PeticionGeneracion):
     try:
-        config = obtener_configuracion_de_documentos()
+        config = _config_con_paciente(peticion)
         archivo_bytes = generar_pdf_desde_nota_clinica(peticion.nota_clinica, peticion.tipo_documento, config)
     except Exception as error:
         raise HTTPException(status_code=500, detail=f"Error al generar el PDF: {str(error)}")
@@ -53,7 +62,7 @@ async def generar_documento_pdf_desde_nota(peticion: PeticionGeneracion):
 @router.post("/generar-word")
 async def generar_documento_word_desde_nota(peticion: PeticionGeneracion):
     try:
-        config = obtener_configuracion_de_documentos()
+        config = _config_con_paciente(peticion)
         archivo_bytes = generar_word_desde_nota_clinica(peticion.nota_clinica, peticion.tipo_documento, config)
     except Exception as error:
         raise HTTPException(status_code=500, detail=f"Error al generar el Word: {str(error)}")

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Mic, Square, Send, FileText, CheckCircle, RotateCcw, Users, Eye, Download, Edit3, Save, Search, Clock, User } from 'lucide-react'
+import { Mic, Square, Send, FileText, CheckCircle, RotateCcw, Users, Eye, Download, Edit3, Save, Search, Clock, User, UserPlus, AlertCircle } from 'lucide-react'
 import Modal from '../../componentes/comunes/Modal'
 import EditorNotaClinicaEstructurada from '../../componentes/comunes/EditorNotaClinicaEstructurada'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
@@ -41,20 +41,24 @@ export default function PaginaNuevaConsulta() {
   const [motorDiarizacion, establecerMotorDiarizacion] = useState('pyannote')
   const [modalDiarizacionAbierto, establecerModalDiarizacionAbierto] = useState(false)
 
-  const [dniBusqueda, establecerDniBusqueda] = useState(estadoPersistido?.dniBusqueda || '')
+  const [textoBusqueda, establecerTextoBusqueda] = useState(estadoPersistido?.textoBusqueda || estadoPersistido?.dniBusqueda || '')
   const [pacienteEncontrado, establecerPacienteEncontrado] = useState<any>(estadoPersistido?.pacienteEncontrado || null)
   const [buscandoPaciente, establecerBuscandoPaciente] = useState(false)
   const [historialDelPaciente, establecerHistorialDelPaciente] = useState<any[]>([])
   const [mostrarHistorial, establecerMostrarHistorial] = useState(false)
   const [infoDiarizacion, establecerInfoDiarizacion] = useState<any>(estadoPersistido?.infoDiarizacion || null)
+  const [listaPacientes, establecerListaPacientes] = useState<any[]>([])
+  const [cargandoLista, establecerCargandoLista] = useState(false)
+  const [mostrarSugerencias, establecerMostrarSugerencias] = useState(false)
+  const [listaCargada, establecerListaCargada] = useState(false)
 
   const persistirEstado = useCallback(() => {
     const estado = {
       estadoDelFlujo, tipoDocumento, especialidad, transcripcion, notaClinica,
-      dniBusqueda, pacienteEncontrado, infoDiarizacion,
+      textoBusqueda, pacienteEncontrado, infoDiarizacion,
     }
     sessionStorage.setItem(CLAVE_SESION, JSON.stringify(estado))
-  }, [estadoDelFlujo, tipoDocumento, especialidad, transcripcion, notaClinica, dniBusqueda, pacienteEncontrado, infoDiarizacion])
+  }, [estadoDelFlujo, tipoDocumento, especialidad, transcripcion, notaClinica, textoBusqueda, pacienteEncontrado, infoDiarizacion])
 
   useEffect(() => {
     if (transcripcion || notaClinica) persistirEstado()
@@ -64,36 +68,93 @@ export default function PaginaNuevaConsulta() {
   const referenciaTrozosDeAudio = useRef<Blob[]>([])
   const referenciaIntervalo = useRef<number | null>(null)
   const referenciaFlujoDeAudio = useRef<MediaStream | null>(null)
+  const referenciaSeccionPaciente = useRef<HTMLDivElement | null>(null)
+  const referenciaInputDni = useRef<HTMLInputElement | null>(null)
+  const [resaltarSeccionPaciente, establecerResaltarSeccionPaciente] = useState(false)
 
-  const buscarPacientePorDni = async () => {
-    if (dniBusqueda.length < 8) return
+  const cargarListaPacientesUnaVez = useCallback(async () => {
+    if (listaCargada || cargandoLista) return
+    establecerCargandoLista(true)
+    try {
+      const respuesta = await fetch('/api/pacientes')
+      if (respuesta.ok) {
+        const datos = await respuesta.json()
+        establecerListaPacientes(Array.isArray(datos) ? datos : [])
+        establecerListaCargada(true)
+      }
+    } catch { /* silenciar */ }
+    finally { establecerCargandoLista(false) }
+  }, [listaCargada, cargandoLista])
+
+  const cargarHistorialDelPaciente = async (idPaciente: number) => {
+    try {
+      const respHistorial = await fetch(`/api/consultas/medico/${1}`)
+      if (respHistorial.ok) {
+        const consultas = await respHistorial.json()
+        const consultasDelPaciente = consultas.filter((c: any) => c.idPacienteAtendido === idPaciente)
+        establecerHistorialDelPaciente(consultasDelPaciente)
+      }
+    } catch { /* silenciar */ }
+  }
+
+  const normalizarTexto = (texto: string) =>
+    texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  const textoBusquedaNormalizado = normalizarTexto(textoBusqueda)
+  const esBusquedaNumerica = /^\d+$/.test(textoBusqueda.trim())
+
+  const sugerencias = (!pacienteEncontrado && textoBusquedaNormalizado.length >= 2)
+    ? listaPacientes
+        .filter((p: any) => {
+          const nombreCompleto = normalizarTexto(`${p.nombreDelPaciente || ''} ${p.apellidoDelPaciente || ''}`)
+          const documento = (p.numeroDocumentoIdentidad || '').toLowerCase()
+          return nombreCompleto.includes(textoBusquedaNormalizado) || documento.includes(textoBusquedaNormalizado)
+        })
+        .slice(0, 8)
+    : []
+
+  const seleccionarPaciente = async (paciente: any) => {
+    establecerPacienteEncontrado(paciente)
+    establecerTextoBusqueda(`${paciente.nombreDelPaciente} ${paciente.apellidoDelPaciente}`.trim())
+    establecerMostrarSugerencias(false)
+    establecerHistorialDelPaciente([])
+    await cargarHistorialDelPaciente(paciente.idPaciente)
+  }
+
+  const buscarPaciente = async () => {
+    const consulta = textoBusqueda.trim()
+    if (consulta.length < 2) return
     establecerBuscandoPaciente(true)
     establecerPacienteEncontrado(null)
     establecerHistorialDelPaciente([])
     try {
-      const respuesta = await fetch(`/api/pacientes/documento/${dniBusqueda}`)
-      if (respuesta.ok) {
-        const paciente = await respuesta.json()
-        establecerPacienteEncontrado(paciente)
-
-        const respHistorial = await fetch(`/api/consultas/medico/${1}`)
-        if (respHistorial.ok) {
-          const consultas = await respHistorial.json()
-          const consultasDelPaciente = consultas.filter((c: any) => c.idPacienteAtendido === paciente.idPaciente)
-          establecerHistorialDelPaciente(consultasDelPaciente)
+      if (esBusquedaNumerica && consulta.length >= 8) {
+        const respuesta = await fetch(`/api/pacientes/documento/${consulta}`)
+        if (respuesta.ok) {
+          const paciente = await respuesta.json()
+          await seleccionarPaciente(paciente)
+          return
         }
+      }
+      await cargarListaPacientesUnaVez()
+      if (sugerencias.length === 1) {
+        await seleccionarPaciente(sugerencias[0])
+      } else {
+        establecerMostrarSugerencias(true)
       }
     } catch { /* silenciar */ }
     finally { establecerBuscandoPaciente(false) }
   }
 
-  const manejarCambioDni = (valor: string) => {
-    if (!/^\d*$/.test(valor) || valor.length > 15) return
-    establecerDniBusqueda(valor)
-    if (valor.length < 8) {
+  const manejarCambioBusqueda = (valor: string) => {
+    if (valor.length > 100) return
+    establecerTextoBusqueda(valor)
+    establecerMostrarSugerencias(true)
+    if (pacienteEncontrado) {
       establecerPacienteEncontrado(null)
       establecerHistorialDelPaciente([])
     }
+    if (valor.trim().length >= 2) cargarListaPacientesUnaVez()
   }
 
   const limpiarIntervalo = useCallback(() => {
@@ -110,7 +171,18 @@ export default function PaginaNuevaConsulta() {
     }
   }, [])
 
+  const solicitarSeleccionDePaciente = () => {
+    establecerResaltarSeccionPaciente(true)
+    referenciaSeccionPaciente.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setTimeout(() => referenciaInputDni.current?.focus(), 350)
+    setTimeout(() => establecerResaltarSeccionPaciente(false), 2400)
+  }
+
   const iniciarGrabacion = async () => {
+    if (!pacienteEncontrado) {
+      solicitarSeleccionDePaciente()
+      return
+    }
     try {
       const flujoDeAudio = await navigator.mediaDevices.getUserMedia({ audio: true })
       referenciaFlujoDeAudio.current = flujoDeAudio
@@ -160,11 +232,81 @@ export default function PaginaNuevaConsulta() {
     establecerNotaClinica('')
     establecerEstadoDelFlujo('esperando')
     establecerInfoDiarizacion(null)
-    establecerDniBusqueda('')
+    establecerTextoBusqueda('')
     establecerPacienteEncontrado(null)
     establecerHistorialDelPaciente([])
+    establecerMostrarSugerencias(false)
     establecerEstaEditando(false)
     sessionStorage.removeItem(CLAVE_SESION)
+  }
+
+  const inyectarDatosDelPacienteEnNota = (nota: string, paciente: any): string => {
+    if (!paciente || !nota) return nota
+
+    const calcularEdad = (fechaNac?: string) => {
+      if (!fechaNac) return ''
+      const soloFecha = fechaNac.split('T')[0]
+      const nacimiento = new Date(soloFecha)
+      if (isNaN(nacimiento.getTime())) return ''
+      const hoy = new Date()
+      let edad = hoy.getFullYear() - nacimiento.getFullYear()
+      const m = hoy.getMonth() - nacimiento.getMonth()
+      if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--
+      return edad >= 0 && edad < 130 ? `${edad} anos` : ''
+    }
+
+    const formatearFecha = (fecha?: string) => {
+      if (!fecha) return ''
+      const partes = fecha.split('T')[0].split('-')
+      return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : fecha
+    }
+
+    const nombreCompleto = `${paciente.nombreDelPaciente || ''} ${paciente.apellidoDelPaciente || ''}`.trim()
+    const edad = calcularEdad(paciente.fechaDeNacimiento)
+    const lineas: string[] = []
+    if (nombreCompleto) lineas.push(`- Nombre: ${nombreCompleto}`)
+    if (paciente.numeroDocumentoIdentidad) lineas.push(`- Documento: ${paciente.tipoDocumentoIdentidad || 'DNI'} ${paciente.numeroDocumentoIdentidad}`)
+    if (paciente.sexoBiologico) lineas.push(`- Sexo: ${paciente.sexoBiologico}`)
+    if (paciente.fechaDeNacimiento) lineas.push(`- Fecha de nacimiento: ${formatearFecha(paciente.fechaDeNacimiento)}${edad ? ` (${edad})` : ''}`)
+    if (paciente.telefonoDeContacto) lineas.push(`- Telefono: ${paciente.telefonoDeContacto}`)
+    if (paciente.correoElectronico) lineas.push(`- Correo: ${paciente.correoElectronico}`)
+    if (paciente.direccionDomiciliaria) lineas.push(`- Direccion: ${paciente.direccionDomiciliaria}`)
+
+    if (lineas.length === 0) return nota
+
+    const bloqueDatos = lineas.join('\n')
+    const regexTitulo = /^(#{1,3}\s+|\*\*\s*)?datos\s+del\s+paciente\s*(\*\*)?\s*$/i
+
+    const lineasNota = nota.split('\n')
+    const indicesEncabezado: number[] = []
+    lineasNota.forEach((linea, i) => {
+      const limpio = linea.trim().replace(/\*/g, '').replace(/^#+\s*/, '').trim()
+      if (/^#{1,3}\s+/.test(linea.trim()) || /^\*\*.+\*\*$/.test(linea.trim())) {
+        indicesEncabezado.push(i)
+        if (regexTitulo.test(linea.trim()) || /^datos\s+del\s+paciente/i.test(limpio)) {
+          (indicesEncabezado as any).__datos = i
+        }
+      }
+    })
+
+    const idxDatos = (indicesEncabezado as any).__datos as number | undefined
+    if (idxDatos !== undefined) {
+      const siguiente = indicesEncabezado.find(i => i > idxDatos) ?? lineasNota.length
+      const nuevas = [
+        ...lineasNota.slice(0, idxDatos + 1),
+        bloqueDatos,
+        '',
+        ...lineasNota.slice(siguiente),
+      ]
+      return nuevas.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+    }
+
+    const seccionNueva = `## Datos del Paciente\n${bloqueDatos}\n\n`
+    const primerEncabezado = indicesEncabezado[0]
+    if (primerEncabezado === undefined) return `${seccionNueva}${nota}`
+    const antes = lineasNota.slice(0, primerEncabezado).join('\n')
+    const despues = lineasNota.slice(primerEncabezado).join('\n')
+    return `${antes ? antes + '\n' : ''}${seccionNueva}${despues}`.replace(/\n{3,}/g, '\n\n').trim()
   }
 
   const enviarAlServicioIA = async () => {
@@ -197,9 +339,14 @@ export default function PaginaNuevaConsulta() {
       }
 
       establecerEstadoDelFlujo('procesando')
-      const respuestaProcesamiento = await fetch('http://localhost:8000/api/ia/procesar', {
+
+      const claveIdempotencia = `ui-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      const respuestaEncolado = await fetch('http://localhost:8000/api/ia/procesar-async', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': claveIdempotencia,
+        },
         body: JSON.stringify({
           transcripcion: datosTranscripcion.transcripcion,
           especialidad,
@@ -207,18 +354,61 @@ export default function PaginaNuevaConsulta() {
         }),
       })
 
-      if (!respuestaProcesamiento.ok) {
-        throw new Error(`Error ${respuestaProcesamiento.status}`)
+      if (!respuestaEncolado.ok) {
+        throw new Error(`Error ${respuestaEncolado.status} al encolar trabajo`)
       }
 
-      const datosProcesamiento = await respuestaProcesamiento.json()
-      establecerNotaClinica(datosProcesamiento.nota_clinica)
+      const datosEncolado = await respuestaEncolado.json()
+      const jobId = datosEncolado.job_id
+      if (!jobId) {
+        throw new Error('El servidor no devolvio un job_id valido')
+      }
+
+      if (datosEncolado.reutilizado_por_idempotencia && datosEncolado.resultado) {
+        const datosProcesamiento = datosEncolado.resultado
+        const notaEnriquecida = inyectarDatosDelPacienteEnNota(datosProcesamiento.nota_clinica, pacienteEncontrado)
+        establecerNotaClinica(notaEnriquecida)
+        await fetch('http://localhost:8000/api/ia/generar-y-guardar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nota_clinica: notaEnriquecida, tipo_documento: tipoDocumento }),
+        })
+        establecerEstadoDelFlujo('completado')
+        return
+      }
+
+      const intervaloPollingMs = 1500
+      const tiempoMaximoEsperaMs = 240000
+      const inicioEsperaMs = Date.now()
+      let datosProcesamiento: any = null
+      while (Date.now() - inicioEsperaMs < tiempoMaximoEsperaMs) {
+        await new Promise((resolve) => setTimeout(resolve, intervaloPollingMs))
+        const respuestaEstado = await fetch(`http://localhost:8000/api/ia/procesar-async/${jobId}`)
+        if (!respuestaEstado.ok) {
+          throw new Error(`Error ${respuestaEstado.status} consultando estado del trabajo`)
+        }
+        const registro = await respuestaEstado.json()
+        if (registro.estado === 'completado') {
+          datosProcesamiento = registro.resultado
+          break
+        }
+        if (registro.estado === 'fallido') {
+          const detalle = registro?.error?.detalle || 'El trabajo fallo en el pipeline'
+          throw new Error(detalle)
+        }
+      }
+
+      if (!datosProcesamiento) {
+        throw new Error('El trabajo excedio el tiempo maximo de espera')
+      }
+      const notaEnriquecida = inyectarDatosDelPacienteEnNota(datosProcesamiento.nota_clinica, pacienteEncontrado)
+      establecerNotaClinica(notaEnriquecida)
 
       await fetch('http://localhost:8000/api/ia/generar-y-guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nota_clinica: datosProcesamiento.nota_clinica,
+          nota_clinica: notaEnriquecida,
           tipo_documento: tipoDocumento,
         }),
       })
@@ -233,7 +423,7 @@ export default function PaginaNuevaConsulta() {
             especialidad,
             tipoDocumento,
             transcripcion: datosTranscripcion.transcripcion,
-            notaClinica: datosProcesamiento.nota_clinica,
+            notaClinica: notaEnriquecida,
           }),
         })
       } catch { /* no bloquear el flujo principal */ }
@@ -256,10 +446,27 @@ export default function PaginaNuevaConsulta() {
 
     try {
       const endpoint = formato === 'pdf' ? '/api/ia/generar-pdf' : '/api/ia/generar-word'
+      const cuerpoPeticion: Record<string, unknown> = {
+        nota_clinica: notaClinica,
+        tipo_documento: tipoDocumento,
+        especialidad: especialidad || '',
+      }
+      if (pacienteEncontrado) {
+        cuerpoPeticion.paciente = {
+          nombre_completo: `${pacienteEncontrado.nombreDelPaciente ?? ''} ${pacienteEncontrado.apellidoDelPaciente ?? ''}`.trim(),
+          tipo_documento: pacienteEncontrado.tipoDocumentoIdentidad ?? '',
+          numero_documento: pacienteEncontrado.numeroDocumentoIdentidad ?? '',
+          sexo: pacienteEncontrado.sexoBiologico ?? '',
+          fecha_nacimiento: pacienteEncontrado.fechaDeNacimiento ?? '',
+          telefono: pacienteEncontrado.telefonoDeContacto ?? '',
+          correo: pacienteEncontrado.correoElectronico ?? '',
+          direccion: pacienteEncontrado.direccionDomiciliaria ?? '',
+        }
+      }
       const respuesta = await fetch(`http://localhost:8000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nota_clinica: notaClinica, tipo_documento: tipoDocumento }),
+        body: JSON.stringify(cuerpoPeticion),
       })
 
       if (!respuesta.ok) throw new Error(`Error ${respuesta.status}`)
@@ -289,20 +496,74 @@ export default function PaginaNuevaConsulta() {
         <p className="text-slate-400 mt-1">Graba la consulta y genera el documento clinico</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
-        <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
-          <User className="w-4 h-4 text-medico-500" />
-          Paciente
-        </h3>
+      <div
+        ref={referenciaSeccionPaciente}
+        className={`bg-white rounded-xl border p-5 mb-6 transition-all duration-500 ${
+          resaltarSeccionPaciente
+            ? 'border-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.18)] ring-2 ring-amber-200'
+            : !pacienteEncontrado
+              ? 'border-amber-200/70 shadow-[0_0_0_1px_rgba(251,191,36,0.08)]'
+              : 'border-slate-200'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <User className="w-4 h-4 text-medico-500" />
+            Paciente
+            {!pacienteEncontrado && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                Requerido
+              </span>
+            )}
+          </h3>
+          {pacienteEncontrado && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+              <CheckCircle className="w-3 h-3" /> Seleccionado
+            </span>
+          )}
+        </div>
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-            <input type="text" value={dniBusqueda} onChange={(e) => manejarCambioDni(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && buscarPacientePorDni()}
-              placeholder="Ingrese DNI del paciente y presione Enter"
+            <input
+              ref={referenciaInputDni}
+              type="text" value={textoBusqueda}
+              onChange={(e) => manejarCambioBusqueda(e.target.value)}
+              onFocus={() => { cargarListaPacientesUnaVez(); if (textoBusqueda.trim().length >= 2 && !pacienteEncontrado) establecerMostrarSugerencias(true) }}
+              onBlur={() => setTimeout(() => establecerMostrarSugerencias(false), 180)}
+              onKeyDown={(e) => e.key === 'Enter' && buscarPaciente()}
+              placeholder="Busca por DNI o nombre del paciente"
+              autoComplete="off"
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+
+            {mostrarSugerencias && !pacienteEncontrado && textoBusqueda.trim().length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-72 overflow-y-auto">
+                {cargandoLista && sugerencias.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-slate-400">Cargando pacientes...</div>
+                ) : sugerencias.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-slate-400">
+                    Sin coincidencias. {esBusquedaNumerica && textoBusqueda.trim().length >= 8 ? 'Presiona Buscar para buscar por DNI exacto.' : 'Refina la busqueda.'}
+                  </div>
+                ) : (
+                  sugerencias.map((p: any) => (
+                    <button key={p.idPaciente} type="button"
+                      onMouseDown={(e) => { e.preventDefault(); seleccionarPaciente(p) }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-medico-50 border-b border-slate-100 last:border-b-0 transition-colors">
+                      <p className="text-sm font-medium text-slate-800">
+                        {p.nombreDelPaciente} {p.apellidoDelPaciente}
+                      </p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-0.5">
+                        <span>{p.tipoDocumentoIdentidad}: {p.numeroDocumentoIdentidad}</span>
+                        {p.sexoBiologico && <span>{p.sexoBiologico}</span>}
+                        {p.fechaDeNacimiento && <span>{p.fechaDeNacimiento.split('T')[0]}</span>}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
-          <button onClick={buscarPacientePorDni} disabled={dniBusqueda.length < 8 || buscandoPaciente}
+          <button onClick={buscarPaciente} disabled={textoBusqueda.trim().length < 2 || buscandoPaciente}
             className="px-4 py-2.5 bg-medico-500 text-white rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors disabled:opacity-50">
             {buscandoPaciente ? '...' : 'Buscar'}
           </button>
@@ -359,8 +620,8 @@ export default function PaginaNuevaConsulta() {
           </div>
         )}
 
-        {dniBusqueda.length >= 8 && !pacienteEncontrado && !buscandoPaciente && (
-          <p className="mt-2 text-xs text-amber-600">Paciente no encontrado. Registrelo en la seccion de Pacientes antes de continuar.</p>
+        {textoBusqueda.trim().length >= 2 && !pacienteEncontrado && !buscandoPaciente && !mostrarSugerencias && sugerencias.length === 0 && listaCargada && (
+          <p className="mt-2 text-xs text-amber-600">Sin coincidencias. Registra al paciente en la seccion de Pacientes antes de continuar.</p>
         )}
       </div>
 
@@ -433,18 +694,41 @@ export default function PaginaNuevaConsulta() {
               </div>
             )}
 
+            {!pacienteEncontrado && estadoDelFlujo === 'esperando' && (
+              <button
+                type="button"
+                onClick={solicitarSeleccionDePaciente}
+                className="w-full mb-5 flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-amber-50 to-amber-50/60 border border-amber-200 hover:border-amber-300 hover:shadow-sm transition-all text-left group"
+              >
+                <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-200 transition-colors">
+                  <UserPlus className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-800">Selecciona un paciente para continuar</p>
+                  <p className="text-xs text-amber-600/80 mt-0.5">La grabacion se habilitara cuando vincules al paciente de esta consulta.</p>
+                </div>
+                <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              </button>
+            )}
+
             <div className="flex flex-col items-center py-8">
               <div className="relative">
                 {estadoDelFlujo === 'grabando' && (
                   <div className="absolute inset-0 -m-2 rounded-full border-4 border-red-300 animate-ping" />
                 )}
+                {!pacienteEncontrado && estadoDelFlujo === 'esperando' && (
+                  <div className="absolute inset-0 -m-2 rounded-full border-2 border-dashed border-amber-300/70 pointer-events-none" />
+                )}
                 <button
                   onClick={estadoDelFlujo === 'grabando' ? detenerGrabacion : iniciarGrabacion}
                   disabled={estaEnProcesoDeIA || estadoDelFlujo === 'detenido'}
+                  title={!pacienteEncontrado && estadoDelFlujo === 'esperando' ? 'Selecciona un paciente para habilitar la grabacion' : undefined}
                   className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
                     estadoDelFlujo === 'grabando'
                       ? 'bg-red-500 hover:bg-red-600 shadow-red-200 scale-110'
-                      : 'bg-gradient-to-br from-medico-500 to-medico-600 hover:from-medico-600 hover:to-medico-700 shadow-medico-200'
+                      : !pacienteEncontrado && estadoDelFlujo === 'esperando'
+                        ? 'bg-gradient-to-br from-slate-300 to-slate-400 hover:from-amber-400 hover:to-amber-500 cursor-help shadow-slate-200'
+                        : 'bg-gradient-to-br from-medico-500 to-medico-600 hover:from-medico-600 hover:to-medico-700 shadow-medico-200'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {estadoDelFlujo === 'grabando' ? (
@@ -462,9 +746,12 @@ export default function PaginaNuevaConsulta() {
               <p className={`text-sm mt-4 font-medium ${
                 estadoDelFlujo === 'completado' ? 'text-exito' :
                 estadoDelFlujo === 'grabando' ? 'text-red-500' :
+                !pacienteEncontrado && estadoDelFlujo === 'esperando' ? 'text-amber-600' :
                 'text-slate-400'
               }`}>
-                {etiquetasPorEstado[estadoDelFlujo]}
+                {!pacienteEncontrado && estadoDelFlujo === 'esperando'
+                  ? 'Selecciona un paciente antes de grabar'
+                  : etiquetasPorEstado[estadoDelFlujo]}
               </p>
 
               {estaEnProcesoDeIA && (

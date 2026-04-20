@@ -7,6 +7,13 @@ GO
 USE MedScribeDB;
 GO
 
+IF OBJECT_ID('dbo.PlanesSuscripcion', 'U') IS NOT NULL
+BEGIN
+    PRINT 'Base de datos ya inicializada. Saltando creacion de tablas.';
+    SET NOEXEC ON;
+END
+GO
+
 -- =============================================================================
 -- MEDSCRIBE AI - MULTITENANT SaaS
 -- Motor: SQL Server 2022

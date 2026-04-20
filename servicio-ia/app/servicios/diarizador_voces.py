@@ -184,7 +184,19 @@ async def transcribir_y_diarizar_con_pyannote(contenido_audio: bytes, extension:
         if not s["es_principal"]:
             segmentos_descartados_count += 1
 
-    transcripcion_completa = " ".join(textos_principales)
+    transcripcion_completa = " ".join(textos_principales).strip()
+
+    if not transcripcion_completa:
+        ruta_fallback = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
+        try:
+            sf.write(ruta_fallback, waveform.squeeze(0).numpy(), sr)
+            with open(ruta_fallback, "rb") as f:
+                audio_wav_completo = f.read()
+            transcripcion_completa = (await transcribir_audio_con_whisper(audio_wav_completo, "audio.wav")).strip()
+        finally:
+            if os.path.exists(ruta_fallback):
+                os.unlink(ruta_fallback)
+
     cantidad_hablantes = len(set(s.get("rol_clinico", "") for s in segmentos if s.get("texto")))
 
     return {

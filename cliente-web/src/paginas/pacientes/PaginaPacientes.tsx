@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
+import { PhoneInput } from 'react-international-phone'
+import 'react-international-phone/style.css'
 import { pacienteServicio } from '../../servicios/pacienteServicio'
 import type { Paciente } from '../../tipos/paciente'
 import Modal from '../../componentes/comunes/Modal'
 import Cargando from '../../componentes/comunes/Cargando'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
+import { detectarCodigoPaisUsuario } from '../../utilidades/geolocalizacion'
 import { Users, Plus, Search, Edit2, Trash2 } from 'lucide-react'
 
 export default function PaginaPacientes() {
@@ -14,6 +17,7 @@ export default function PaginaPacientes() {
   const [modalAbierto, establecerModalAbierto] = useState(false)
   const [pacienteEnEdicion, establecerPacienteEnEdicion] = useState<Paciente | null>(null)
   const [mensajeExito, establecerMensajeExito] = useState('')
+  const [paisDetectado, establecerPaisDetectado] = useState<string>('pe')
 
   const [formulario, establecerFormulario] = useState({
     nombreDelPaciente: '',
@@ -40,6 +44,10 @@ export default function PaginaPacientes() {
   }
 
   useEffect(() => { cargarPacientes() }, [])
+
+  useEffect(() => {
+    detectarCodigoPaisUsuario().then(establecerPaisDetectado)
+  }, [])
 
   const pacientesFiltrados = pacientes.filter((p) =>
     `${p.nombreDelPaciente} ${p.apellidoDelPaciente} ${p.numeroDocumentoIdentidad}`
@@ -253,8 +261,16 @@ export default function PaginaPacientes() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Telefono</label>
-            <input type="tel" value={formulario.telefonoDeContacto} onChange={(e) => actualizarCampo('telefonoDeContacto', e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+            <PhoneInput
+              defaultCountry={paisDetectado}
+              value={formulario.telefonoDeContacto}
+              onChange={(telefono) => actualizarCampo('telefonoDeContacto', telefono)}
+              inputClassName="!w-full !px-3 !py-2 !bg-slate-50 !border !border-slate-200 !rounded-r-lg !text-sm focus:!outline-none focus:!ring-2 focus:!ring-medico-500/20 focus:!border-medico-400"
+              countrySelectorStyleProps={{
+                buttonClassName: '!bg-slate-50 !border !border-slate-200 !rounded-l-lg !px-2',
+              }}
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Correo</label>

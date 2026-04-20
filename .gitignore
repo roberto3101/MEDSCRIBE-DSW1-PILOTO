@@ -44,3 +44,9 @@ gateway-dotnet/src/MedScribe.API/documentos-generados/config_documentos.json
 
 # Logs
 *.log
+
+# Output de pruebas locales
+_test_out/
+
+# Documentos generados por servicio-ia en runtime
+servicio-ia/documentos-salida/

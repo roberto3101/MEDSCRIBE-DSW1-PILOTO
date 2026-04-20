@@ -1,10 +1,16 @@
 import os
 import json
 
-RUTA_CONFIGURACION = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "..", "gateway-dotnet", "src", "MedScribe.API", "documentos-generados", "config_documentos.json"
+_DIRECTORIO_PERSISTENTE = os.environ.get(
+    "MEDSCRIBE_CONFIG_DIR",
+    "/app/documentos-salida" if os.path.isdir("/app/documentos-salida") else os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "documentos-salida",
+    ),
 )
+os.makedirs(_DIRECTORIO_PERSISTENTE, exist_ok=True)
+
+RUTA_CONFIGURACION = os.path.join(_DIRECTORIO_PERSISTENTE, "config_documentos.json")
 
 CONFIGURACION_POR_DEFECTO = {
     "nombre_clinica": "MedScribe AI",

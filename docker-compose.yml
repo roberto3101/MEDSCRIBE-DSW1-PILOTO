@@ -50,6 +50,34 @@ services:
       - medscribe
     restart: "no"
 
+  redis:
+    image: redis:7-alpine
+    container_name: medscribe-redis
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - medscribe
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: medscribe-qdrant
+    ports:
+      - "${QDRANT_HOST_PORT:-6333}:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - medscribe
+    restart: unless-stopped
+
   servicio-ia:
     build: ./servicio-ia
     container_name: medscribe-servicio-ia
@@ -57,6 +85,38 @@ services:
       - "${AI_SERVICE_PORT:-8000}:8000"
     env_file:
       - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    volumes:
+      - ./servicio-ia/documentos-salida:/app/documentos-salida
+      - hf_cache:/app/.hf_cache
+      - torch_cache:/app/.torch_cache
+    networks:
+      - medscribe
+    restart: unless-stopped
+
+  worker-ia:
+    build: ./servicio-ia
+    container_name: medscribe-worker-ia
+    command: rq worker pipeline_nota_clinica --url redis://redis:6379/0
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      servicio-ia:
+        condition: service_started
     volumes:
       - ./servicio-ia/documentos-salida:/app/documentos-salida
       - hf_cache:/app/.hf_cache
@@ -105,6 +165,8 @@ volumes:
   gateway_documentos:
   hf_cache:
   torch_cache:
+  redis_data:
+  qdrant_data:
 
 networks:
   medscribe:

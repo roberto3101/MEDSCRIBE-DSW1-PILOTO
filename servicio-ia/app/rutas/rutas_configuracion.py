@@ -1,17 +1,18 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from app.servicios.configuracion_documentos import obtener_configuracion_de_documentos, guardar_configuracion_de_documentos
+from app.servicios.configuracion_documentos import (
+    obtener_configuracion_de_documentos,
+    guardar_configuracion_de_documentos,
+    _DIRECTORIO_PERSISTENTE,
+)
 from app.servicios.formatos_documento import listar_formatos_disponibles
 import os
 import shutil
 
 router = APIRouter()
 
-DIRECTORIO_LOGOS = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "..", "gateway-dotnet", "src", "MedScribe.API", "documentos-generados", "logos"
-)
+DIRECTORIO_LOGOS = os.path.join(_DIRECTORIO_PERSISTENTE, "logos")
 
 
 TAMANO_MAXIMO_FIRMA_BASE64 = 200_000
