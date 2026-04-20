@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PhoneInput } from 'react-international-phone'
 import 'react-international-phone/style.css'
 import { pacienteServicio } from '../../servicios/pacienteServicio'
@@ -7,7 +7,45 @@ import Modal from '../../componentes/comunes/Modal'
 import Cargando from '../../componentes/comunes/Cargando'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
 import { detectarCodigoPaisUsuario } from '../../utilidades/geolocalizacion'
-import { Users, Plus, Search, Edit2, Trash2 } from 'lucide-react'
+import {
+  validarNombre,
+  sanitizarNombre,
+  validarDocumentoIdentidad,
+  sanitizarDocumento,
+  obtenerMaxLengthDocumento,
+  obtenerPlaceholderDocumento,
+  validarFechaNacimiento,
+  validarTelefono,
+  validarCorreo,
+  validarDireccion,
+} from '../../utilidades/validaciones'
+import { Users, Plus, Search, Edit2, Trash2, AlertCircle } from 'lucide-react'
+
+type FormularioPaciente = {
+  nombreDelPaciente: string
+  apellidoDelPaciente: string
+  numeroDocumentoIdentidad: string
+  tipoDocumentoIdentidad: 'DNI' | 'CE' | 'Pasaporte'
+  fechaDeNacimiento: string
+  sexoBiologico: 'Masculino' | 'Femenino'
+  telefonoDeContacto: string
+  correoElectronico: string
+  direccionDomiciliaria: string
+}
+
+type ErroresFormulario = Partial<Record<keyof FormularioPaciente, string | null>>
+
+const FORMULARIO_INICIAL: FormularioPaciente = {
+  nombreDelPaciente: '',
+  apellidoDelPaciente: '',
+  numeroDocumentoIdentidad: '',
+  tipoDocumentoIdentidad: 'DNI',
+  fechaDeNacimiento: '',
+  sexoBiologico: 'Masculino',
+  telefonoDeContacto: '',
+  correoElectronico: '',
+  direccionDomiciliaria: '',
+}
 
 export default function PaginaPacientes() {
   const { tienePermiso } = useContextoAutenticacion()
@@ -17,19 +55,11 @@ export default function PaginaPacientes() {
   const [modalAbierto, establecerModalAbierto] = useState(false)
   const [pacienteEnEdicion, establecerPacienteEnEdicion] = useState<Paciente | null>(null)
   const [mensajeExito, establecerMensajeExito] = useState('')
+  const [errorEnvio, establecerErrorEnvio] = useState('')
   const [paisDetectado, establecerPaisDetectado] = useState<string>('pe')
-
-  const [formulario, establecerFormulario] = useState({
-    nombreDelPaciente: '',
-    apellidoDelPaciente: '',
-    numeroDocumentoIdentidad: '',
-    tipoDocumentoIdentidad: 'DNI' as const,
-    fechaDeNacimiento: '',
-    sexoBiologico: 'Masculino' as const,
-    telefonoDeContacto: '',
-    correoElectronico: '',
-    direccionDomiciliaria: '',
-  })
+  const [formulario, establecerFormulario] = useState<FormularioPaciente>(FORMULARIO_INICIAL)
+  const [camposTocados, establecerCamposTocados] = useState<Record<string, boolean>>({})
+  const [intentoEnviar, establecerIntentoEnviar] = useState(false)
 
   const cargarPacientes = async () => {
     establecerEstaCargando(true)
@@ -44,10 +74,27 @@ export default function PaginaPacientes() {
   }
 
   useEffect(() => { cargarPacientes() }, [])
+  useEffect(() => { detectarCodigoPaisUsuario().then(establecerPaisDetectado) }, [])
 
-  useEffect(() => {
-    detectarCodigoPaisUsuario().then(establecerPaisDetectado)
-  }, [])
+  const errores: ErroresFormulario = useMemo(() => ({
+    nombreDelPaciente: validarNombre(formulario.nombreDelPaciente, 'El nombre'),
+    apellidoDelPaciente: validarNombre(formulario.apellidoDelPaciente, 'El apellido'),
+    numeroDocumentoIdentidad: validarDocumentoIdentidad(formulario.tipoDocumentoIdentidad, formulario.numeroDocumentoIdentidad),
+    fechaDeNacimiento: validarFechaNacimiento(formulario.fechaDeNacimiento),
+    telefonoDeContacto: validarTelefono(formulario.telefonoDeContacto),
+    correoElectronico: validarCorreo(formulario.correoElectronico),
+    direccionDomiciliaria: validarDireccion(formulario.direccionDomiciliaria),
+  }), [formulario])
+
+  const formularioEsValido = Object.values(errores).every((error) => !error)
+
+  const debeMostrarError = (campo: keyof FormularioPaciente): boolean => {
+    return (camposTocados[campo] || intentoEnviar) && !!errores[campo]
+  }
+
+  const marcarTocado = (campo: keyof FormularioPaciente) => {
+    establecerCamposTocados((anterior) => ({ ...anterior, [campo]: true }))
+  }
 
   const pacientesFiltrados = pacientes.filter((p) =>
     `${p.nombreDelPaciente} ${p.apellidoDelPaciente} ${p.numeroDocumentoIdentidad}`
@@ -57,11 +104,10 @@ export default function PaginaPacientes() {
 
   const abrirModalCrear = () => {
     establecerPacienteEnEdicion(null)
-    establecerFormulario({
-      nombreDelPaciente: '', apellidoDelPaciente: '', numeroDocumentoIdentidad: '',
-      tipoDocumentoIdentidad: 'DNI', fechaDeNacimiento: '', sexoBiologico: 'Masculino',
-      telefonoDeContacto: '', correoElectronico: '', direccionDomiciliaria: '',
-    })
+    establecerFormulario(FORMULARIO_INICIAL)
+    establecerCamposTocados({})
+    establecerIntentoEnviar(false)
+    establecerErrorEnvio('')
     establecerModalAbierto(true)
   }
 
@@ -71,31 +117,48 @@ export default function PaginaPacientes() {
       nombreDelPaciente: paciente.nombreDelPaciente,
       apellidoDelPaciente: paciente.apellidoDelPaciente,
       numeroDocumentoIdentidad: paciente.numeroDocumentoIdentidad,
-      tipoDocumentoIdentidad: paciente.tipoDocumentoIdentidad as 'DNI',
+      tipoDocumentoIdentidad: paciente.tipoDocumentoIdentidad as 'DNI' | 'CE' | 'Pasaporte',
       fechaDeNacimiento: paciente.fechaDeNacimiento.split('T')[0],
-      sexoBiologico: paciente.sexoBiologico as 'Masculino',
+      sexoBiologico: paciente.sexoBiologico as 'Masculino' | 'Femenino',
       telefonoDeContacto: paciente.telefonoDeContacto,
       correoElectronico: paciente.correoElectronico,
       direccionDomiciliaria: paciente.direccionDomiciliaria,
     })
+    establecerCamposTocados({})
+    establecerIntentoEnviar(false)
+    establecerErrorEnvio('')
     establecerModalAbierto(true)
   }
 
   const guardarPaciente = async (evento: React.FormEvent) => {
     evento.preventDefault()
+    establecerIntentoEnviar(true)
+    establecerErrorEnvio('')
+    if (!formularioEsValido) return
+
+    const datosSanitizados: FormularioPaciente = {
+      ...formulario,
+      nombreDelPaciente: formulario.nombreDelPaciente.trim(),
+      apellidoDelPaciente: formulario.apellidoDelPaciente.trim(),
+      numeroDocumentoIdentidad: formulario.numeroDocumentoIdentidad.trim().toUpperCase(),
+      correoElectronico: formulario.correoElectronico.trim(),
+      direccionDomiciliaria: formulario.direccionDomiciliaria.trim(),
+    }
+
     try {
       if (pacienteEnEdicion) {
-        await pacienteServicio.actualizarPaciente(pacienteEnEdicion.idPaciente, formulario as any)
+        await pacienteServicio.actualizarPaciente(pacienteEnEdicion.idPaciente, datosSanitizados as any)
         establecerMensajeExito('Paciente actualizado correctamente')
       } else {
-        await pacienteServicio.crearPaciente(formulario as any)
+        await pacienteServicio.crearPaciente(datosSanitizados as any)
         establecerMensajeExito('Paciente registrado correctamente')
       }
       establecerModalAbierto(false)
       cargarPacientes()
       setTimeout(() => establecerMensajeExito(''), 3000)
-    } catch {
-      alert('Error al guardar paciente')
+    } catch (error: any) {
+      const mensaje = error?.response?.data?.mensaje || error?.response?.data?.title || 'Error al guardar paciente'
+      establecerErrorEnvio(mensaje)
     }
   }
 
@@ -109,9 +172,40 @@ export default function PaginaPacientes() {
     }
   }
 
-  const actualizarCampo = (campo: string, valor: string) => {
-    establecerFormulario((anterior) => ({ ...anterior, [campo]: valor }))
+  const manejarCambioNombre = (campo: 'nombreDelPaciente' | 'apellidoDelPaciente', valor: string) => {
+    establecerFormulario((anterior) => ({ ...anterior, [campo]: sanitizarNombre(valor) }))
   }
+
+  const manejarCambioDocumento = (valor: string) => {
+    const sanitizado = sanitizarDocumento(formulario.tipoDocumentoIdentidad, valor)
+    establecerFormulario((anterior) => ({ ...anterior, numeroDocumentoIdentidad: sanitizado }))
+  }
+
+  const manejarCambioTipoDocumento = (nuevoTipo: 'DNI' | 'CE' | 'Pasaporte') => {
+    establecerFormulario((anterior) => ({
+      ...anterior,
+      tipoDocumentoIdentidad: nuevoTipo,
+      numeroDocumentoIdentidad: sanitizarDocumento(nuevoTipo, anterior.numeroDocumentoIdentidad),
+    }))
+  }
+
+  const claseInput = (campo: keyof FormularioPaciente): string => {
+    const base = 'w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2'
+    if (debeMostrarError(campo)) return `${base} border-red-300 focus:ring-red-500/20 focus:border-red-400`
+    return `${base} border-slate-200 focus:ring-medico-500/20 focus:border-medico-400`
+  }
+
+  const MensajeError = ({ campo }: { campo: keyof FormularioPaciente }) => {
+    if (!debeMostrarError(campo)) return null
+    return (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <AlertCircle className="w-3 h-3 flex-shrink-0" />
+        <span>{errores[campo]}</span>
+      </p>
+    )
+  }
+
+  const hoyISO = new Date().toISOString().split('T')[0]
 
   if (estaCargando) return <Cargando />
 
@@ -215,24 +309,51 @@ export default function PaginaPacientes() {
         alCerrar={() => establecerModalAbierto(false)}
         titulo={pacienteEnEdicion ? 'Editar Paciente' : 'Nuevo Paciente'}
       >
-        <form onSubmit={guardarPaciente} className="space-y-4">
+        <form onSubmit={guardarPaciente} className="space-y-4" noValidate>
+          {errorEnvio && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-100 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{errorEnvio}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Nombre</label>
-              <input type="text" required value={formulario.nombreDelPaciente} onChange={(e) => actualizarCampo('nombreDelPaciente', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+              <input
+                type="text"
+                value={formulario.nombreDelPaciente}
+                onChange={(e) => manejarCambioNombre('nombreDelPaciente', e.target.value)}
+                onBlur={() => marcarTocado('nombreDelPaciente')}
+                maxLength={100}
+                placeholder="Ej. Maria"
+                className={claseInput('nombreDelPaciente')}
+              />
+              <MensajeError campo="nombreDelPaciente" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Apellido</label>
-              <input type="text" required value={formulario.apellidoDelPaciente} onChange={(e) => actualizarCampo('apellidoDelPaciente', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+              <input
+                type="text"
+                value={formulario.apellidoDelPaciente}
+                onChange={(e) => manejarCambioNombre('apellidoDelPaciente', e.target.value)}
+                onBlur={() => marcarTocado('apellidoDelPaciente')}
+                maxLength={100}
+                placeholder="Ej. Garcia Lopez"
+                className={claseInput('apellidoDelPaciente')}
+              />
+              <MensajeError campo="apellidoDelPaciente" />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Tipo Documento</label>
-              <select value={formulario.tipoDocumentoIdentidad} onChange={(e) => actualizarCampo('tipoDocumentoIdentidad', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400">
+              <select
+                value={formulario.tipoDocumentoIdentidad}
+                onChange={(e) => manejarCambioTipoDocumento(e.target.value as 'DNI' | 'CE' | 'Pasaporte')}
+                className={claseInput('tipoDocumentoIdentidad')}
+              >
                 <option value="DNI">DNI</option>
                 <option value="CE">CE</option>
                 <option value="Pasaporte">Pasaporte</option>
@@ -240,55 +361,104 @@ export default function PaginaPacientes() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Numero Documento</label>
-              <input type="text" required minLength={8} value={formulario.numeroDocumentoIdentidad} onChange={(e) => actualizarCampo('numeroDocumentoIdentidad', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+              <input
+                type="text"
+                value={formulario.numeroDocumentoIdentidad}
+                onChange={(e) => manejarCambioDocumento(e.target.value)}
+                onBlur={() => marcarTocado('numeroDocumentoIdentidad')}
+                maxLength={obtenerMaxLengthDocumento(formulario.tipoDocumentoIdentidad)}
+                inputMode={formulario.tipoDocumentoIdentidad === 'Pasaporte' ? 'text' : 'numeric'}
+                placeholder={obtenerPlaceholderDocumento(formulario.tipoDocumentoIdentidad)}
+                className={claseInput('numeroDocumentoIdentidad')}
+              />
+              <MensajeError campo="numeroDocumentoIdentidad" />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Fecha Nacimiento</label>
-              <input type="date" required value={formulario.fechaDeNacimiento} onChange={(e) => actualizarCampo('fechaDeNacimiento', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+              <input
+                type="date"
+                value={formulario.fechaDeNacimiento}
+                onChange={(e) => establecerFormulario((a) => ({ ...a, fechaDeNacimiento: e.target.value }))}
+                onBlur={() => marcarTocado('fechaDeNacimiento')}
+                max={hoyISO}
+                className={claseInput('fechaDeNacimiento')}
+              />
+              <MensajeError campo="fechaDeNacimiento" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Sexo</label>
-              <select value={formulario.sexoBiologico} onChange={(e) => actualizarCampo('sexoBiologico', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400">
+              <select
+                value={formulario.sexoBiologico}
+                onChange={(e) => establecerFormulario((a) => ({ ...a, sexoBiologico: e.target.value as 'Masculino' | 'Femenino' }))}
+                className={claseInput('sexoBiologico')}
+              >
                 <option value="Masculino">Masculino</option>
                 <option value="Femenino">Femenino</option>
               </select>
             </div>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Telefono</label>
             <PhoneInput
               defaultCountry={paisDetectado}
               value={formulario.telefonoDeContacto}
-              onChange={(telefono) => actualizarCampo('telefonoDeContacto', telefono)}
-              inputClassName="!w-full !px-3 !py-2 !bg-slate-50 !border !border-slate-200 !rounded-r-lg !text-sm focus:!outline-none focus:!ring-2 focus:!ring-medico-500/20 focus:!border-medico-400"
+              onChange={(telefono) => establecerFormulario((a) => ({ ...a, telefonoDeContacto: telefono }))}
+              onBlur={() => marcarTocado('telefonoDeContacto')}
+              inputClassName={`!w-full !px-3 !py-2 !bg-slate-50 !border !rounded-r-lg !text-sm focus:!outline-none focus:!ring-2 ${
+                debeMostrarError('telefonoDeContacto')
+                  ? '!border-red-300 focus:!ring-red-500/20 focus:!border-red-400'
+                  : '!border-slate-200 focus:!ring-medico-500/20 focus:!border-medico-400'
+              }`}
               countrySelectorStyleProps={{
                 buttonClassName: '!bg-slate-50 !border !border-slate-200 !rounded-l-lg !px-2',
               }}
               className="w-full"
             />
+            <MensajeError campo="telefonoDeContacto" />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Correo</label>
-            <input type="email" value={formulario.correoElectronico} onChange={(e) => actualizarCampo('correoElectronico', e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+            <input
+              type="email"
+              value={formulario.correoElectronico}
+              onChange={(e) => establecerFormulario((a) => ({ ...a, correoElectronico: e.target.value }))}
+              onBlur={() => marcarTocado('correoElectronico')}
+              maxLength={150}
+              placeholder="correo@ejemplo.com"
+              className={claseInput('correoElectronico')}
+            />
+            <MensajeError campo="correoElectronico" />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Direccion</label>
-            <input type="text" value={formulario.direccionDomiciliaria} onChange={(e) => actualizarCampo('direccionDomiciliaria', e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400" />
+            <input
+              type="text"
+              value={formulario.direccionDomiciliaria}
+              onChange={(e) => establecerFormulario((a) => ({ ...a, direccionDomiciliaria: e.target.value }))}
+              onBlur={() => marcarTocado('direccionDomiciliaria')}
+              maxLength={300}
+              placeholder="Av. Ejemplo 123, Lima"
+              className={claseInput('direccionDomiciliaria')}
+            />
+            <MensajeError campo="direccionDomiciliaria" />
           </div>
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => establecerModalAbierto(false)}
               className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
               Cancelar
             </button>
-            <button type="submit"
-              className="flex-1 px-4 py-2.5 bg-medico-500 text-white rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors">
+            <button
+              type="submit"
+              disabled={intentoEnviar && !formularioEsValido}
+              className="flex-1 px-4 py-2.5 bg-medico-500 text-white rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+            >
               {pacienteEnEdicion ? 'Actualizar' : 'Registrar'}
             </button>
           </div>

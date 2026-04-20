@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Users, Plus, Shield, UserCheck, Lock, Check, X, Minus } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Users, Plus, Shield, UserCheck, Lock, Check, X, Minus, AlertCircle } from 'lucide-react'
 import Cargando from '../../componentes/comunes/Cargando'
 import Modal from '../../componentes/comunes/Modal'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
+import { sanitizarNombre, validarNombre, validarCorreo, validarContrasena } from '../../utilidades/validaciones'
 
 interface UsuarioDeClinica {
   idUsuario: number
@@ -38,6 +39,22 @@ export default function PaginaUsuariosClinica() {
   const [nuevoUsuario, establecerNuevoUsuario] = useState({
     nombreCompleto: '', correoElectronico: '', contrasena: '', idRol: 0,
   })
+  const [camposTocados, establecerCamposTocados] = useState<Record<string, boolean>>({})
+  const [intentoCrear, establecerIntentoCrear] = useState(false)
+  const [errorCrear, establecerErrorCrear] = useState('')
+
+  const erroresNuevoUsuario = useMemo(() => ({
+    nombreCompleto: validarNombre(nuevoUsuario.nombreCompleto, 'El nombre completo'),
+    correoElectronico: validarCorreo(nuevoUsuario.correoElectronico, true),
+    contrasena: validarContrasena(nuevoUsuario.contrasena),
+    idRol: nuevoUsuario.idRol > 0 ? null : 'Debes seleccionar un rol',
+  }), [nuevoUsuario])
+
+  const nuevoUsuarioEsValido = Object.values(erroresNuevoUsuario).every((e) => !e)
+
+  const debeMostrarErrorUsuario = (campo: string) => {
+    return (camposTocados[campo] || intentoCrear) && !!(erroresNuevoUsuario as any)[campo]
+  }
 
   const MODULOS = ['pacientes', 'consultas', 'documentos', 'configuracion', 'usuarios', 'roles']
   const ACCIONES = ['ver', 'crear', 'editar', 'eliminar']
@@ -58,16 +75,44 @@ export default function PaginaUsuariosClinica() {
   useEffect(() => { cargarDatos() }, [])
 
   const crearUsuario = async () => {
-    if (!nuevoUsuario.nombreCompleto || !nuevoUsuario.correoElectronico || !nuevoUsuario.contrasena || !nuevoUsuario.idRol) return
+    establecerIntentoCrear(true)
+    establecerErrorCrear('')
+    if (!nuevoUsuarioEsValido) return
     const rolElegido = roles.find(r => r.idRol === nuevoUsuario.idRol)
-    await fetch('/api/usuarios-clinica', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...nuevoUsuario, rolDelSistema: rolElegido?.nombreDelRol || 'Medico' }),
-    })
-    establecerModalCrear(false)
+    const payload = {
+      nombreCompleto: nuevoUsuario.nombreCompleto.trim(),
+      correoElectronico: nuevoUsuario.correoElectronico.trim(),
+      contrasena: nuevoUsuario.contrasena,
+      idRol: nuevoUsuario.idRol,
+      rolDelSistema: rolElegido?.nombreDelRol || 'Medico',
+    }
+    try {
+      const respuesta = await fetch('/api/usuarios-clinica', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!respuesta.ok) {
+        const datos = await respuesta.json().catch(() => ({}))
+        establecerErrorCrear(datos?.mensaje || 'No se pudo crear el usuario')
+        return
+      }
+      establecerModalCrear(false)
+      establecerNuevoUsuario({ nombreCompleto: '', correoElectronico: '', contrasena: '', idRol: 0 })
+      establecerCamposTocados({})
+      establecerIntentoCrear(false)
+      cargarDatos()
+    } catch {
+      establecerErrorCrear('Error de red al crear usuario')
+    }
+  }
+
+  const abrirModalCrear = () => {
     establecerNuevoUsuario({ nombreCompleto: '', correoElectronico: '', contrasena: '', idRol: 0 })
-    cargarDatos()
+    establecerCamposTocados({})
+    establecerIntentoCrear(false)
+    establecerErrorCrear('')
+    establecerModalCrear(true)
   }
 
   const abrirCambiarRol = (usuario: UsuarioDeClinica) => {
@@ -178,7 +223,7 @@ export default function PaginaUsuariosClinica() {
           </h1>
           <p className="text-slate-400 mt-1">{usuarios.length} usuarios registrados</p>
         </div>
-        <button onClick={() => establecerModalCrear(true)}
+        <button onClick={abrirModalCrear}
           className="flex items-center gap-2 bg-medico-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors">
           <Plus className="w-4 h-4" /> Nuevo Usuario
         </button>
@@ -240,32 +285,101 @@ export default function PaginaUsuariosClinica() {
 
       <Modal estaAbierto={modalCrear} alCerrar={() => establecerModalCrear(false)} titulo="Nuevo Usuario">
         <div className="space-y-4">
+          {errorCrear && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-100 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{errorCrear}</span>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Nombre Completo</label>
-            <input type="text" value={nuevoUsuario.nombreCompleto} onChange={(e) => establecerNuevoUsuario(p => ({ ...p, nombreCompleto: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20" />
+            <input
+              type="text"
+              value={nuevoUsuario.nombreCompleto}
+              onChange={(e) => establecerNuevoUsuario(p => ({ ...p, nombreCompleto: sanitizarNombre(e.target.value) }))}
+              onBlur={() => establecerCamposTocados(p => ({ ...p, nombreCompleto: true }))}
+              maxLength={100}
+              placeholder="Ej. Juan Perez"
+              className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                debeMostrarErrorUsuario('nombreCompleto')
+                  ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400'
+                  : 'border-slate-200 focus:ring-medico-500/20 focus:border-medico-400'
+              }`}
+            />
+            {debeMostrarErrorUsuario('nombreCompleto') && (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {erroresNuevoUsuario.nombreCompleto}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Correo Electronico</label>
-            <input type="email" value={nuevoUsuario.correoElectronico} onChange={(e) => establecerNuevoUsuario(p => ({ ...p, correoElectronico: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20" />
+            <input
+              type="email"
+              value={nuevoUsuario.correoElectronico}
+              onChange={(e) => establecerNuevoUsuario(p => ({ ...p, correoElectronico: e.target.value }))}
+              onBlur={() => establecerCamposTocados(p => ({ ...p, correoElectronico: true }))}
+              maxLength={150}
+              placeholder="correo@clinica.com"
+              className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                debeMostrarErrorUsuario('correoElectronico')
+                  ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400'
+                  : 'border-slate-200 focus:ring-medico-500/20 focus:border-medico-400'
+              }`}
+            />
+            {debeMostrarErrorUsuario('correoElectronico') && (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {erroresNuevoUsuario.correoElectronico}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Contrasena</label>
-            <input type="password" value={nuevoUsuario.contrasena} onChange={(e) => establecerNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))}
-              minLength={8}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20" />
+            <input
+              type="password"
+              value={nuevoUsuario.contrasena}
+              onChange={(e) => establecerNuevoUsuario(p => ({ ...p, contrasena: e.target.value }))}
+              onBlur={() => establecerCamposTocados(p => ({ ...p, contrasena: true }))}
+              maxLength={50}
+              placeholder="Min 8 chars, mayus, minus y numero"
+              className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                debeMostrarErrorUsuario('contrasena')
+                  ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400'
+                  : 'border-slate-200 focus:ring-medico-500/20 focus:border-medico-400'
+              }`}
+            />
+            {debeMostrarErrorUsuario('contrasena') && (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {erroresNuevoUsuario.contrasena}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Rol</label>
-            <select value={nuevoUsuario.idRol} onChange={(e) => establecerNuevoUsuario(p => ({ ...p, idRol: Number(e.target.value) }))}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20">
+            <select
+              value={nuevoUsuario.idRol}
+              onChange={(e) => establecerNuevoUsuario(p => ({ ...p, idRol: Number(e.target.value) }))}
+              onBlur={() => establecerCamposTocados(p => ({ ...p, idRol: true }))}
+              className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                debeMostrarErrorUsuario('idRol')
+                  ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400'
+                  : 'border-slate-200 focus:ring-medico-500/20 focus:border-medico-400'
+              }`}
+            >
               <option value={0}>Seleccionar rol</option>
               {roles.map(r => <option key={r.idRol} value={r.idRol}>{r.nombreDelRol}</option>)}
             </select>
+            {debeMostrarErrorUsuario('idRol') && (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {erroresNuevoUsuario.idRol}
+              </p>
+            )}
           </div>
-          <button onClick={crearUsuario}
-            className="w-full bg-medico-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors">
+          <button
+            onClick={crearUsuario}
+            disabled={intentoCrear && !nuevoUsuarioEsValido}
+            className="w-full bg-medico-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-medico-600 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+          >
             Crear Usuario
           </button>
         </div>

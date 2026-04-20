@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
+import { validarContrasena } from '../../utilidades/validaciones'
 import { UserCircle, Mail, Shield, Lock, Save, CheckCircle, Calendar, Stethoscope } from 'lucide-react'
 
 export default function PaginaPerfil() {
@@ -14,12 +15,17 @@ export default function PaginaPerfil() {
     evento.preventDefault()
     establecerError('')
 
-    if (contrasenaNueva.length < 8) {
-      establecerError('La contrasena debe tener al menos 8 caracteres')
+    if (!contrasenaActual) {
+      establecerError('Debes ingresar tu contrasena actual')
       return
     }
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(contrasenaNueva)) {
-      establecerError('Debe contener al menos una mayuscula, una minuscula y un numero')
+    const errorValidacion = validarContrasena(contrasenaNueva)
+    if (errorValidacion) {
+      establecerError(errorValidacion)
+      return
+    }
+    if (contrasenaNueva === contrasenaActual) {
+      establecerError('La nueva contrasena debe ser diferente a la actual')
       return
     }
     if (contrasenaNueva !== confirmarContrasena) {
