@@ -1,0 +1,49 @@
+graph LR
+    Medico((Medico))
+    Admin((Administrador))
+
+    Admin -.->|hereda<br/>permisos de| Medico
+
+    subgraph Comp["Casos de uso del Medico (heredados por Admin)"]
+        direction TB
+        CU1[Iniciar Sesion]
+        CU2[Cerrar Sesion]
+        CU13[Editar Perfil]
+        CU14[Cambiar Contrasena]
+        CU3[Gestionar Pacientes]
+        CU4[Crear Consulta<br/>desde Audio]
+        CU5[Transcribir y Estructurar<br/>Nota Clinica]
+        CU7[Generar PDF / Word]
+        CU6[Editar Nota Clinica]
+        CU8[Ver Historial<br/>de Consultas]
+    end
+
+    subgraph Sa["Casos exclusivos del Administrador"]
+        direction TB
+        CU9[Aprobar Documento]
+        CU10[Gestionar Usuarios<br/>de la Clinica]
+        CU11[Gestionar Roles<br/>y Permisos]
+        CU12[Configurar Plantillas<br/>de Documentos]
+    end
+
+    Medico --> CU1
+    Medico --> CU2
+    Medico --> CU13
+    Medico --> CU14
+    Medico --> CU3
+    Medico --> CU4
+    Medico --> CU6
+    Medico --> CU8
+
+    Admin --> CU9
+    Admin --> CU10
+    Admin --> CU11
+    Admin --> CU12
+
+    CU4 -.incluye.-> CU5
+    CU5 -.incluye.-> CU7
+
+    style Medico fill:#e1f5ff,stroke:#0288d1,stroke-width:3px
+    style Admin fill:#ffe4e1,stroke:#c62828,stroke-width:3px
+    style Comp fill:#f1f8e9,stroke:#7cb342,stroke-width:2px
+    style Sa fill:#fff3e0,stroke:#f57c00,stroke-width:2px

@@ -1,0 +1,102 @@
+classDiagram
+    class Clinica {
+        +int IdClinica
+        +string Nombre
+        +string RUC
+        +string Direccion
+        +DateTime FechaRegistro
+        +bool Activa
+    }
+
+    class Usuario {
+        +int IdUsuario
+        +int IdClinica
+        +string CorreoElectronico
+        +string ContrasenaHash
+        +string TipoUsuario
+        +int IdRolDeClinica
+        +bool Activo
+        +iniciarSesion()
+        +cambiarContrasena()
+    }
+
+    class Medico {
+        +int IdMedico
+        +int IdUsuario
+        +string Nombres
+        +string Apellidos
+        +string Especialidad
+        +string ColegiaturaCMP
+    }
+
+    class Paciente {
+        +int IdPaciente
+        +int IdClinica
+        +string DNI
+        +string Nombres
+        +string Apellidos
+        +DateTime FechaNacimiento
+        +string Telefono
+        +string CorreoElectronico
+    }
+
+    class Consulta {
+        +int IdConsulta
+        +int IdMedico
+        +int IdPaciente
+        +DateTime FechaConsulta
+        +string Estado
+        +string MotivoConsulta
+        +crear()
+        +aprobar()
+    }
+
+    class PlantillaHistoriaClinica {
+        +int IdPlantilla
+        +int IdClinica
+        +string Nombre
+        +string Tipo
+    }
+
+    class SeccionDePlantilla {
+        +int IdSeccion
+        +int IdPlantilla
+        +string Titulo
+        +int Orden
+    }
+
+    class ValorDeSeccion {
+        +int IdValor
+        +int IdConsulta
+        +int IdSeccion
+        +string Contenido
+    }
+
+    class Documento {
+        +int IdDocumento
+        +int IdConsulta
+        +string TipoArchivo
+        +string RutaArchivo
+        +string EstadoAprobacion
+        +DateTime FechaGeneracion
+    }
+
+    class RolDeClinica {
+        +int IdRol
+        +int IdClinica
+        +string Nombre
+        +string PermisosJSON
+    }
+
+    Clinica "1" --> "*" Usuario
+    Clinica "1" --> "*" Paciente
+    Clinica "1" --> "*" RolDeClinica
+    Clinica "1" --> "*" PlantillaHistoriaClinica
+    Usuario "1" --> "0..1" Medico
+    Usuario "*" --> "1" RolDeClinica
+    Medico "1" --> "*" Consulta
+    Paciente "1" --> "*" Consulta
+    Consulta "1" --> "*" ValorDeSeccion
+    Consulta "1" --> "*" Documento
+    PlantillaHistoriaClinica "1" --> "*" SeccionDePlantilla
+    SeccionDePlantilla "1" --> "*" ValorDeSeccion

@@ -1,0 +1,38 @@
+sequenceDiagram
+    actor M as Medico
+    participant FE as Cliente Web
+    participant API as Gateway C#
+    participant IA as Servicio IA Python
+    participant W as Whisper (Groq)
+    participant D as Diarizador<br/>(Deepgram/Pyannote)
+    participant LLM as Llama 3.3 (Groq)
+    participant RAG as RAG Qdrant
+    participant DB as SQL Server
+    participant FS as Almacen PDF/Word
+
+    M->>FE: Graba audio de la consulta
+    FE->>API: POST /api/consultas (audio.wav + paciente)
+    API->>IA: POST /api/ia/transcribir (audio)
+    IA->>W: Transcribir audio
+    W-->>IA: Texto plano
+    IA->>D: Identificar oradores
+    D-->>IA: Texto con etiquetas Medico/Paciente
+    IA-->>API: Transcripcion estructurada
+
+    API->>IA: POST /api/ia/procesar (transcripcion)
+    IA->>RAG: Buscar contexto medico relevante
+    RAG-->>IA: Indicaciones, formato SOAP
+    IA->>LLM: Generar nota clinica<br/>(transcripcion + contexto)
+    LLM-->>IA: JSON con secciones (anamnesis, dx, plan)
+    IA-->>API: Nota clinica estructurada
+
+    API->>DB: INSERT Consulta + ValoresDeSeccion<br/>(stored procedure transaccional)
+    DB-->>API: IdConsulta
+
+    API->>IA: POST /api/ia/generar-pdf
+    IA->>FS: Genera PDF con ReportLab
+    FS-->>IA: ruta archivo
+    IA-->>API: ruta PDF
+    API->>DB: INSERT Documento
+    API-->>FE: Consulta creada (id, ruta)
+    FE-->>M: Muestra consulta y descarga PDF

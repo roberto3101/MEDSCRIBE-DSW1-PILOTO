@@ -1,0 +1,35 @@
+graph TB
+    subgraph Maquina["Maquina del Usuario - Docker Desktop"]
+        subgraph Red["Red Docker: medscribe-net"]
+            C1[medscribe-cliente-web<br/>nginx + React build<br/>Puerto 3000]
+            C2[medscribe-gateway<br/>ASP.NET Core 9<br/>Puerto 5000]
+            C3[medscribe-servicio-ia<br/>Python 3.12 + FastAPI<br/>Puerto 8000]
+            C4[(medscribe-db<br/>SQL Server Express<br/>Puerto 1434)]
+            C5[medscribe-db-init<br/>Aplica migraciones<br/>una sola vez]
+            C6[(medscribe-qdrant<br/>Base vectorial)]
+            C7[(medscribe-redis<br/>Cache + jobs)]
+        end
+    end
+
+    subgraph Nube["Servicios en la Nube"]
+        N1[Groq Cloud<br/>API gratuita]
+        N2[Deepgram<br/>API opcional]
+        N3[HuggingFace<br/>Modelos Pyannote]
+    end
+
+    Browser[Navegador del Medico] -->|HTTP 3000| C1
+    C1 -->|HTTP 5000| C2
+    C2 -->|HTTP 8000| C3
+    C2 -->|TCP 1434| C4
+    C5 -.aplica una vez.-> C4
+    C3 --> C6
+    C3 --> C7
+    C3 -->|HTTPS| N1
+    C3 -->|HTTPS| N2
+    C3 -->|HTTPS| N3
+
+    style C1 fill:#61dafb,color:#000
+    style C2 fill:#512bd4,color:#fff
+    style C3 fill:#3776ab,color:#fff
+    style C4 fill:#cc2927,color:#fff
+    style N1 fill:#f55036,color:#fff

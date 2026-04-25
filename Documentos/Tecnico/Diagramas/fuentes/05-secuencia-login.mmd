@@ -1,0 +1,25 @@
+sequenceDiagram
+    actor U as Usuario
+    participant FE as Cliente Web<br/>(React)
+    participant API as Gateway API<br/>(C# .NET)
+    participant SP as Stored Procedure<br/>usp_Usuarios_ValidarCredenciales
+    participant DB as SQL Server
+
+    U->>FE: Ingresa correo y contrasena
+    FE->>FE: Valida formato del formulario
+    FE->>API: POST /api/autenticacion/iniciar-sesion<br/>{correo, contrasena}
+    API->>API: Valida ModelState
+    API->>SP: EXEC usp_Usuarios_ValidarCredenciales
+    SP->>DB: SELECT usuario, hash, permisos
+    DB-->>SP: Datos del usuario
+    SP-->>API: Resultado + permisos JSON
+
+    alt Credenciales validas
+        API->>API: Genera token JWT
+        API-->>FE: 200 OK<br/>{token, usuario, permisos}
+        FE->>FE: Guarda en localStorage<br/>"medscribe_sesion"
+        FE-->>U: Redirige al Panel
+    else Credenciales invalidas
+        API-->>FE: 401 Unauthorized
+        FE-->>U: Muestra "Correo o contrasena incorrectos"
+    end

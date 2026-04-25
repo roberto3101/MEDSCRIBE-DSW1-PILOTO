@@ -1,0 +1,20 @@
+stateDiagram-v2
+    [*] --> Borrador: Medico inicia consulta
+
+    Borrador --> EnTranscripcion: Sube audio
+    EnTranscripcion --> Transcrita: Whisper termina
+    EnTranscripcion --> Error: Audio invalido o fallo Whisper
+    Error --> Borrador: Reintentar
+
+    Transcrita --> Estructurada: LLM genera nota
+    Transcrita --> Error: Fallo LLM
+    Estructurada --> EnRevision: Medico revisa
+    EnRevision --> Editada: Medico edita texto
+    Editada --> EnRevision: Vuelve a revisar
+    EnRevision --> Aprobada: Medico aprueba
+    Aprobada --> Documentada: Genera PDF y Word
+    Documentada --> Archivada: Pasa el tiempo / cierre
+    Archivada --> [*]
+
+    Aprobada --> Anulada: Admin anula consulta
+    Anulada --> [*]

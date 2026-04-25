@@ -1,0 +1,46 @@
+graph TB
+    subgraph Cliente["cliente-web (React + Vite)"]
+        CompPag[paginas/]
+        CompComp[componentes/]
+        CompCtx[contextos/<br/>ContextoAutenticacion]
+        CompServ[servicios/<br/>HTTP Client]
+    end
+
+    subgraph Gateway["gateway-dotnet (ASP.NET Core)"]
+        GwCtrl[Controllers/<br/>Auth, Consulta, Paciente,<br/>Documento, Usuario, Rol]
+        GwServ[Servicios/<br/>ClienteServicioIA<br/>ProveedorContextoClinica]
+        GwData[Acceso a Datos/<br/>ADO.NET + SqlCommand]
+    end
+
+    subgraph IA["servicio-ia (Python + FastAPI)"]
+        IaRout[rutas/<br/>transcripcion, procesamiento,<br/>generacion, trabajos]
+        IaPipe[pipeline_nota_clinica/<br/>Orquestador]
+        IaServ[servicios/<br/>whisper, claude, rag,<br/>diarizador, generador_pdf]
+        IaInfra[infraestructura/<br/>circuito_llm, cola_trabajos,<br/>conexion_redis]
+    end
+
+    subgraph Datos["Persistencia"]
+        SQL[(SQL Server<br/>13 tablas + 45 SPs)]
+        Qdrant[(Qdrant<br/>indice vectorial)]
+        Disco[/disco<br/>PDFs y Words/]
+        Redis[(Redis<br/>idempotencia)]
+    end
+
+    CompPag --> CompCtx
+    CompPag --> CompServ
+    CompServ -->|REST| GwCtrl
+    GwCtrl --> GwServ
+    GwServ --> GwData
+    GwData --> SQL
+    GwServ -->|HTTP| IaRout
+    IaRout --> IaPipe
+    IaPipe --> IaServ
+    IaPipe --> IaInfra
+    IaServ --> Qdrant
+    IaServ --> Disco
+    IaInfra --> Redis
+
+    style Cliente fill:#61dafb,color:#000
+    style Gateway fill:#512bd4,color:#fff
+    style IA fill:#3776ab,color:#fff
+    style Datos fill:#f5f5f5,color:#000

@@ -1,0 +1,30 @@
+flowchart TD
+    Inicio([Inicio]) --> Grabar[Medico graba audio<br/>de la consulta]
+    Grabar --> Subir[Frontend envia audio<br/>al Gateway]
+    Subir --> Validar{Audio valido<br/>formato y tamano?}
+    Validar -->|No| Error1[Mostrar error<br/>al medico]
+    Error1 --> Fin1([Fin])
+    Validar -->|Si| Trans[Transcribir con Whisper]
+    Trans --> Diar[Identificar oradores<br/>Medico vs Paciente]
+    Diar --> Clas[Clasificar tipo de consulta<br/>primera/seguimiento/urgencia]
+    Clas --> RAG[Buscar contexto en Qdrant<br/>plantillas y guias clinicas]
+    RAG --> LLM[Generar nota estructurada<br/>con Llama 3.3]
+    LLM --> ValLLM{Respuesta<br/>completa?}
+    ValLLM -->|No| Reintentar[Reintentar con<br/>backoff exponencial]
+    Reintentar --> LLM
+    ValLLM -->|Si| Guardar[Guardar consulta<br/>en SQL Server<br/>transaccional]
+    Guardar --> Generar[Generar PDF y Word<br/>ReportLab + python-docx]
+    Generar --> Almacenar[Guardar archivo<br/>en disco + metadata]
+    Almacenar --> Mostrar[Mostrar al medico<br/>para revisar y aprobar]
+    Mostrar --> Decision{Medico<br/>aprueba?}
+    Decision -->|Edita| Editar[Editar nota<br/>en pantalla]
+    Editar --> Generar
+    Decision -->|Aprueba| Aprobar[Marcar documento<br/>como APROBADO]
+    Aprobar --> Fin([Fin])
+
+    style Inicio fill:#90EE90
+    style Fin fill:#FFB6C1
+    style Fin1 fill:#FFB6C1
+    style LLM fill:#FFD700
+    style Trans fill:#87CEEB
+    style RAG fill:#DDA0DD

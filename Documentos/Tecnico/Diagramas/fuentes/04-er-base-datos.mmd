@@ -1,0 +1,110 @@
+erDiagram
+    PLANES_SUSCRIPCION ||--o{ SUSCRIPCIONES : "se contrata en"
+    CLINICAS ||--o{ SUSCRIPCIONES : "tiene"
+    CLINICAS ||--o{ USUARIOS : "agrupa"
+    CLINICAS ||--o{ PACIENTES : "registra"
+    CLINICAS ||--o{ ROLES_DE_CLINICA : "define"
+    CLINICAS ||--o{ PLANTILLAS_HISTORIA_CLINICA : "personaliza"
+    USUARIOS ||--o| MEDICOS : "puede ser"
+    USUARIOS }o--|| ROLES_DE_CLINICA : "tiene"
+    MEDICOS ||--o{ CONSULTAS : "atiende"
+    PACIENTES ||--o{ CONSULTAS : "recibe"
+    CONSULTAS ||--o{ VALORES_DE_SECCION : "rellena"
+    CONSULTAS ||--o{ DOCUMENTOS : "genera"
+    CONSULTAS ||--o{ AUDITORIA_DE_CONSULTAS : "registra"
+    PLANTILLAS_HISTORIA_CLINICA ||--o{ SECCIONES_DE_PLANTILLA : "contiene"
+    SECCIONES_DE_PLANTILLA ||--o{ VALORES_DE_SECCION : "se llena con"
+
+    PLANES_SUSCRIPCION {
+        int IdPlan PK
+        string Nombre
+        decimal PrecioMensual
+        int LimiteUsuarios
+        int LimiteConsultasMes
+    }
+    CLINICAS {
+        int IdClinica PK
+        string Nombre
+        string RUC
+        string Direccion
+        datetime FechaRegistro
+        bit Activa
+    }
+    SUSCRIPCIONES {
+        int IdSuscripcion PK
+        int IdClinica FK
+        int IdPlan FK
+        string Estado
+        date FechaInicio
+        date FechaFin
+    }
+    USUARIOS {
+        int IdUsuario PK
+        int IdClinica FK
+        int IdRolDeClinica FK
+        string CorreoElectronico
+        string ContrasenaHash
+        string TipoUsuario
+        bit Activo
+    }
+    MEDICOS {
+        int IdMedico PK
+        int IdUsuario FK
+        string Nombres
+        string Apellidos
+        string Especialidad
+        string ColegiaturaCMP
+    }
+    PACIENTES {
+        int IdPaciente PK
+        int IdClinica FK
+        string DNI
+        string Nombres
+        string Apellidos
+        date FechaNacimiento
+    }
+    ROLES_DE_CLINICA {
+        int IdRol PK
+        int IdClinica FK
+        string Nombre
+        string PermisosJSON
+    }
+    PLANTILLAS_HISTORIA_CLINICA {
+        int IdPlantilla PK
+        int IdClinica FK
+        string Nombre
+        string Tipo
+    }
+    SECCIONES_DE_PLANTILLA {
+        int IdSeccion PK
+        int IdPlantilla FK
+        string Titulo
+        int Orden
+    }
+    CONSULTAS {
+        int IdConsulta PK
+        int IdMedico FK
+        int IdPaciente FK
+        datetime FechaConsulta
+        string Estado
+        string MotivoConsulta
+    }
+    VALORES_DE_SECCION {
+        int IdValor PK
+        int IdConsulta FK
+        int IdSeccion FK
+        string Contenido
+    }
+    DOCUMENTOS {
+        int IdDocumento PK
+        int IdConsulta FK
+        string TipoArchivo
+        string RutaArchivo
+        string EstadoAprobacion
+    }
+    AUDITORIA_DE_CONSULTAS {
+        int IdAuditoria PK
+        int IdConsulta FK
+        string Accion
+        datetime Fecha
+    }

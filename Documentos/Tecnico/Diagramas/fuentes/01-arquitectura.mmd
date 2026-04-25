@@ -1,0 +1,48 @@
+graph TB
+    subgraph Usuario["Usuario Final"]
+        U[Medico / Administrador]
+    end
+
+    subgraph Frontend["Capa Presentacion - React TSX"]
+        FE[Cliente Web<br/>React + Vite + Tailwind<br/>Puerto 3000]
+    end
+
+    subgraph Backend["Capa de Negocio - .NET 9"]
+        GW[Gateway API<br/>ASP.NET Core Web API<br/>Puerto 5000]
+    end
+
+    subgraph IA["Capa de Inteligencia Artificial - Python"]
+        AI[Servicio IA<br/>FastAPI + Whisper + Llama<br/>Puerto 8000]
+    end
+
+    subgraph Datos["Capa de Datos"]
+        DB[(SQL Server<br/>Base relacional<br/>Puerto 1434)]
+        VEC[(Qdrant<br/>Base vectorial RAG)]
+        REDIS[(Redis<br/>Cache y trabajos)]
+        FS[/Archivos PDF y Word/]
+    end
+
+    subgraph APIs["APIs Externas"]
+        GROQ[Groq Cloud<br/>Whisper + Llama 3.3]
+        DG[Deepgram<br/>Diarizacion]
+        HF[HuggingFace<br/>Pyannote]
+    end
+
+    U -->|HTTPS| FE
+    FE -->|REST + JWT| GW
+    GW -->|HTTP interno| AI
+    GW -->|ADO.NET<br/>Stored Procedures| DB
+    AI --> VEC
+    AI --> REDIS
+    AI --> FS
+    AI -->|API Key| GROQ
+    AI -->|API Key| DG
+    AI -->|Token| HF
+
+    style U fill:#ffe4b5
+    style FE fill:#61dafb,color:#000
+    style GW fill:#512bd4,color:#fff
+    style AI fill:#3776ab,color:#fff
+    style DB fill:#cc2927,color:#fff
+    style VEC fill:#dc382d,color:#fff
+    style REDIS fill:#dc382d,color:#fff
