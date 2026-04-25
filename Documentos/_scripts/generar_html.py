@@ -727,12 +727,32 @@ HTML = """<!DOCTYPE html>
     margin: 1.5rem 0;
     text-align: center;
     overflow: auto;
+    cursor: zoom-in;
+    position: relative;
+    transition: box-shadow 0.2s;
   }
+  .diagrama:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .diagrama::after {
+    content: 'Click para ampliar';
+    position: absolute;
+    top: 0.6rem;
+    right: 0.8rem;
+    background: rgba(30, 58, 138, 0.85);
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 50px;
+    font-size: 0.7rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .diagrama:hover::after { opacity: 1; }
   .diagrama svg, .diagrama .svg-diagrama {
     max-width: 100%;
     width: 100%;
     height: auto;
     max-height: 78vh;
+    pointer-events: none;
   }
   .diagrama .titulo-fig {
     font-weight: 700;
@@ -742,6 +762,102 @@ HTML = """<!DOCTYPE html>
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  /* ---------- ZOOM MODAL ---------- */
+  .zoom-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    overflow: hidden;
+    user-select: none;
+  }
+  .zoom-modal.abierto { display: block; }
+  .zoom-contenido {
+    position: absolute;
+    inset: 0;
+    cursor: grab;
+    overflow: hidden;
+  }
+  .zoom-contenido.arrastrando { cursor: grabbing; }
+  .zoom-contenido svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: 0 0;
+    max-width: none !important;
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    pointer-events: none;
+  }
+  .zoom-controles {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 12px;
+    display: flex;
+    gap: 0.4rem;
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .zoom-controles button {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    color: var(--azul);
+    transition: all 0.15s;
+  }
+  .zoom-controles button:hover {
+    background: var(--azul);
+    color: white;
+    border-color: var(--azul);
+  }
+  .zoom-controles button.cerrar { color: #dc2626; }
+  .zoom-controles button.cerrar:hover { background: #dc2626; border-color: #dc2626; }
+  .zoom-info {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.95);
+    padding: 0.6rem 1.2rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    color: var(--texto);
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .zoom-info kbd {
+    background: var(--gris-claro);
+    border: 1px solid var(--gris-borde);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+    margin: 0 0.15rem;
+  }
+  .zoom-escala {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.95);
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--azul);
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   }
 
   /* Cita */
@@ -1035,6 +1151,21 @@ HTML = """<!DOCTYPE html>
   </div>
 </div>
 
+<!-- Modal de zoom para diagramas -->
+<div class="zoom-modal" id="zoom-modal">
+  <div class="zoom-controles">
+    <button id="zoom-mas" title="Acercar (+)">+</button>
+    <button id="zoom-menos" title="Alejar (-)">-</button>
+    <button id="zoom-reset" title="Restablecer (0)">0</button>
+    <button id="zoom-cerrar" class="cerrar" title="Cerrar (Esc)">x</button>
+  </div>
+  <div class="zoom-contenido" id="zoom-contenido"></div>
+  <div class="zoom-info">
+    <kbd>Scroll</kbd> zoom &middot; <kbd>Arrastrar</kbd> mover &middot; <kbd>+</kbd>/<kbd>-</kbd> zoom &middot; <kbd>0</kbd> reset &middot; <kbd>Esc</kbd> cerrar
+  </div>
+  <div class="zoom-escala" id="zoom-escala">100%</div>
+</div>
+
 <footer class="principal">
   <p><strong>MedScribe AI</strong> | Proyecto del curso DSW1 | Cibertec 2026-I</p>
   <p>Equipo: Roberto La Rosa | Jason Davila | Luis Curi | Edward Escobedo</p>
@@ -1110,9 +1241,11 @@ HTML = """<!DOCTYPE html>
   document.getElementById('btn-prev').addEventListener('click', () => irA(indiceActual() - 1));
   document.getElementById('btn-next').addEventListener('click', () => irA(indiceActual() + 1));
 
-  // Atajos de teclado
+  // Atajos de teclado generales
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    // Si el zoom modal esta abierto, los atajos los maneja el modal (ver mas abajo)
+    if (zoomModal.classList.contains('abierto')) return;
     if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault();
       irA(indiceActual() + 1);
@@ -1129,6 +1262,171 @@ HTML = """<!DOCTYPE html>
 
   // Imprimir
   document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
+
+  // ============================================
+  // ZOOM MODAL PARA DIAGRAMAS
+  // ============================================
+  const zoomModal     = document.getElementById('zoom-modal');
+  const zoomContenido = document.getElementById('zoom-contenido');
+  const zoomEscala    = document.getElementById('zoom-escala');
+
+  let zScale = 1, zTx = 0, zTy = 0;
+  let zSvgBaseW = 0, zSvgBaseH = 0;
+  let zArrastrando = false, zStartX = 0, zStartY = 0;
+
+  function aplicarZoom() {
+    const svg = zoomContenido.querySelector('svg');
+    if (!svg) return;
+    svg.style.transform = `translate(${zTx}px, ${zTy}px) scale(${zScale})`;
+    zoomEscala.textContent = Math.round(zScale * 100) + '%';
+  }
+
+  function ajustarInicial() {
+    const svg = zoomContenido.querySelector('svg');
+    if (!svg) return;
+    // Toma el ancho/alto del viewBox
+    const vb = svg.viewBox.baseVal;
+    zSvgBaseW = vb.width || svg.getBoundingClientRect().width || 800;
+    zSvgBaseH = vb.height || svg.getBoundingClientRect().height || 600;
+    // Fija un width/height base en pixeles para que scale opere predeciblemente
+    const escalaInicial = Math.min(
+      (window.innerWidth * 0.9) / zSvgBaseW,
+      (window.innerHeight * 0.85) / zSvgBaseH
+    );
+    svg.style.width = zSvgBaseW + 'px';
+    svg.style.height = zSvgBaseH + 'px';
+    zScale = escalaInicial;
+    // Centrar
+    zTx = (window.innerWidth - zSvgBaseW * zScale) / 2 - window.innerWidth / 2;
+    zTy = (window.innerHeight - zSvgBaseH * zScale) / 2 - window.innerHeight / 2;
+    aplicarZoom();
+  }
+
+  function abrirZoom(svgOriginal) {
+    const clon = svgOriginal.cloneNode(true);
+    // Quita el style inline que limita tamano
+    clon.removeAttribute('style');
+    clon.classList.remove('svg-diagrama');
+    zoomContenido.innerHTML = '';
+    zoomContenido.appendChild(clon);
+    zoomModal.classList.add('abierto');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(ajustarInicial);
+  }
+
+  function cerrarZoom() {
+    zoomModal.classList.remove('abierto');
+    document.body.style.overflow = '';
+    zoomContenido.innerHTML = '';
+  }
+
+  // Click en cada diagrama abre el zoom
+  document.querySelectorAll('.diagrama').forEach(d => {
+    d.addEventListener('click', () => {
+      const svg = d.querySelector('svg');
+      if (svg) abrirZoom(svg);
+    });
+  });
+
+  // Botones del modal
+  document.getElementById('zoom-mas').addEventListener('click', () => {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    const factor = 1.25;
+    zTx = cx - factor * (cx - zTx);
+    zTy = cy - factor * (cy - zTy);
+    zScale *= factor;
+    aplicarZoom();
+  });
+  document.getElementById('zoom-menos').addEventListener('click', () => {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    const factor = 0.8;
+    zTx = cx - factor * (cx - zTx);
+    zTy = cy - factor * (cy - zTy);
+    zScale *= factor;
+    if (zScale < 0.1) zScale = 0.1;
+    aplicarZoom();
+  });
+  document.getElementById('zoom-reset').addEventListener('click', ajustarInicial);
+  document.getElementById('zoom-cerrar').addEventListener('click', cerrarZoom);
+
+  // Wheel zoom centrado en cursor
+  zoomModal.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const nuevo = zScale * factor;
+    if (nuevo < 0.1 || nuevo > 20) return;
+    // Ajustar translacion para que el cursor quede sobre el mismo punto
+    zTx = e.clientX - factor * (e.clientX - zTx);
+    zTy = e.clientY - factor * (e.clientY - zTy);
+    zScale = nuevo;
+    aplicarZoom();
+  }, { passive: false });
+
+  // Drag para mover
+  zoomContenido.addEventListener('mousedown', (e) => {
+    zArrastrando = true;
+    zStartX = e.clientX - zTx;
+    zStartY = e.clientY - zTy;
+    zoomContenido.classList.add('arrastrando');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!zArrastrando) return;
+    zTx = e.clientX - zStartX;
+    zTy = e.clientY - zStartY;
+    aplicarZoom();
+  });
+  window.addEventListener('mouseup', () => {
+    zArrastrando = false;
+    zoomContenido.classList.remove('arrastrando');
+  });
+
+  // Click fuera del SVG cierra
+  zoomModal.addEventListener('click', (e) => {
+    if (e.target === zoomModal) cerrarZoom();
+  });
+
+  // Atajos de teclado dentro del zoom modal
+  document.addEventListener('keydown', (e) => {
+    if (!zoomModal.classList.contains('abierto')) return;
+    if (e.key === 'Escape') { cerrarZoom(); e.stopPropagation(); }
+    else if (e.key === '+' || e.key === '=') document.getElementById('zoom-mas').click();
+    else if (e.key === '-' || e.key === '_') document.getElementById('zoom-menos').click();
+    else if (e.key === '0') document.getElementById('zoom-reset').click();
+  });
+
+  // Soporte touch (pinch zoom basico)
+  let touchDist = 0;
+  zoomContenido.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchDist = Math.hypot(dx, dy);
+    } else if (e.touches.length === 1) {
+      zArrastrando = true;
+      zStartX = e.touches[0].clientX - zTx;
+      zStartY = e.touches[0].clientY - zTy;
+    }
+  });
+  zoomContenido.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const nuevaDist = Math.hypot(dx, dy);
+      const factor = nuevaDist / touchDist;
+      zScale *= factor;
+      touchDist = nuevaDist;
+      aplicarZoom();
+    } else if (e.touches.length === 1 && zArrastrando) {
+      zTx = e.touches[0].clientX - zStartX;
+      zTy = e.touches[0].clientY - zStartY;
+      aplicarZoom();
+    }
+  }, { passive: false });
+  zoomContenido.addEventListener('touchend', () => {
+    zArrastrando = false;
+    touchDist = 0;
+  });
 </script>
 
 </body>
