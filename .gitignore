@@ -50,3 +50,6 @@ _test_out/
 
 # Documentos generados por servicio-ia en runtime
 servicio-ia/documentos-salida/
+
+# Local Claude config
+.claude/
