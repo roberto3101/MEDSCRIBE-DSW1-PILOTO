@@ -46,6 +46,7 @@ interface ContextoAutenticacionTipo {
 
 const ContextoAutenticacion = createContext<ContextoAutenticacionTipo | undefined>(undefined)
 const CLAVE_ALMACENAMIENTO = 'medscribe_sesion'
+const CLAVE_TOKEN = 'medscribe_token'
 
 const PERMISOS_VACIOS: PermisosModulo = { ver: false, crear: false, editar: false, eliminar: false }
 
@@ -99,12 +100,16 @@ export const ProveedorAutenticacion = ({ children }: { children: ReactNode }) =>
       throw new Error(error.mensaje || 'Error al iniciar sesion')
     }
     const datos = await respuesta.json()
+    if (datos.token) {
+      localStorage.setItem(CLAVE_TOKEN, datos.token)
+    }
     establecerUsuario(datos.usuario)
   }
 
   const cerrarSesion = () => {
     establecerUsuario(null)
     localStorage.removeItem(CLAVE_ALMACENAMIENTO)
+    localStorage.removeItem(CLAVE_TOKEN)
     window.location.href = '/iniciar-sesion'
   }
 

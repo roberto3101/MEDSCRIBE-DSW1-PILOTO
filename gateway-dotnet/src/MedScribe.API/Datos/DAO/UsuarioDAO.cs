@@ -16,27 +16,6 @@ namespace MedScribe.API.Datos.DAO
             _contexto = contexto;
         }
 
-        public Usuario? ValidarCredencialesPorCorreoYContrasena(string correoElectronico, string contrasena)
-        {
-            using var conexion = _contexto.AbrirConexionConContextoDeClinica();
-            using var comando = new SqlCommand("usp_Usuarios_ValidarCredenciales", conexion) { CommandType = CommandType.StoredProcedure };
-            comando.Parameters.Add(new SqlParameter("@Correo", SqlDbType.VarChar, 150) { Value = WebUtility.HtmlEncode(correoElectronico) });
-            comando.Parameters.Add(new SqlParameter("@Contrasena", SqlDbType.VarChar, 255) { Value = contrasena });
-            using var lector = comando.ExecuteReader();
-            if (lector.Read())
-            {
-                return new Usuario
-                {
-                    IdUsuario = lector.GetInt32(lector.GetOrdinal("IdUsuario")),
-                    NombreCompleto = lector.GetString(lector.GetOrdinal("NombreCompleto")),
-                    CorreoElectronico = lector.GetString(lector.GetOrdinal("CorreoElectronico")),
-                    RolDelSistema = lector.GetString(lector.GetOrdinal("RolDelSistema")),
-                    EstaCuentaActiva = lector.GetBoolean(lector.GetOrdinal("EstaCuentaActiva"))
-                };
-            }
-            return null;
-        }
-
         public int RegistrarNuevoUsuarioEnSistema(Usuario usuario)
         {
             using var conexion = _contexto.AbrirConexionConContextoDeClinica();

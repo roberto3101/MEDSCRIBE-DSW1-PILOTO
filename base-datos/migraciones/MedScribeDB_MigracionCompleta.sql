@@ -7,6 +7,13 @@ GO
 USE MedScribeDB;
 GO
 
+IF OBJECT_ID('dbo.PlanesSuscripcion', 'U') IS NOT NULL
+BEGIN
+    PRINT 'Base de datos ya inicializada. Saltando creacion de tablas.';
+    SET NOEXEC ON;
+END
+GO
+
 -- =============================================================================
 -- MEDSCRIBE AI - MULTITENANT SaaS
 -- Motor: SQL Server 2022
@@ -140,6 +147,7 @@ CREATE TABLE Usuarios (
     EstaCuentaActiva                BIT NOT NULL DEFAULT 1,
     DebeCambiarContrasena           BIT NOT NULL DEFAULT 1,
     IdRol                           INT NULL,
+    PermisosPersonalizadosJSON      VARCHAR(MAX) NULL,
     FotoPerfilUrl                   VARCHAR(500) NULL,
     UltimoAcceso                    DATETIME NULL,
     FechaRegistroEnSistema          DATETIME NOT NULL DEFAULT GETDATE(),
@@ -345,6 +353,7 @@ CREATE TABLE RolesDeClinica (
     DescripcionDelRol           VARCHAR(200) NULL,
     PermisosEnFormatoJSON       VARCHAR(MAX) NOT NULL DEFAULT '{}',
     EsRolBase                   BIT NOT NULL DEFAULT 0,
+    EstaActivo                  BIT NOT NULL DEFAULT 1,
     FechaCreacion               DATETIME NOT NULL DEFAULT GETDATE(),
 
     CONSTRAINT PK_RolesDeClinica PRIMARY KEY (IdClinica, IdRol),
@@ -408,19 +417,19 @@ GO
 -- USUARIOS
 
 CREATE OR ALTER PROCEDURE usp_Usuarios_ValidarCredenciales
-    @Correo VARCHAR(150),
-    @Contrasena VARCHAR(255)
+    @Correo VARCHAR(150)
 AS
 BEGIN
     SET NOCOUNT ON;
     SELECT u.IdUsuario, u.IdClinica, u.NombreCompleto, u.CorreoElectronico, u.RolDelSistema,
-           u.EstaCuentaActiva, u.IdRol,
+           u.EstaCuentaActiva, u.IdRol, u.ContrasenaHasheada,
            r.NombreDelRol, r.PermisosEnFormatoJSON,
-           c.NombreComercial AS NombreClinica
+           c.NombreComercial AS NombreClinica,
+           CAST('' AS VARCHAR(MAX)) AS PermisosPersonalizadosJSON
     FROM Usuarios u
     LEFT JOIN RolesDeClinica r ON u.IdClinica = r.IdClinica AND u.IdRol = r.IdRol
     LEFT JOIN Clinicas c ON u.IdClinica = c.IdClinica
-    WHERE u.CorreoElectronico = @Correo AND u.ContrasenaHasheada = @Contrasena AND u.EstaCuentaActiva = 1;
+    WHERE u.CorreoElectronico = @Correo;
 END
 GO
 
@@ -1158,16 +1167,34 @@ END
 GO
 
 CREATE OR ALTER PROCEDURE usp_Usuarios_CambiarContrasena
-    @IdUsuario INT, @ContrasenaActual VARCHAR(255), @ContrasenaNueva VARCHAR(255)
+    @IdUsuario INT,
+    @ContrasenaHasheadaNueva VARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE IdUsuario = @IdUsuario AND ContrasenaHasheada = @ContrasenaActual)
+    IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE IdUsuario = @IdUsuario)
     BEGIN
-        RAISERROR('Contrasena actual incorrecta', 16, 1);
+        RAISERROR('Usuario no encontrado', 16, 1);
         RETURN;
     END
-    UPDATE Usuarios SET ContrasenaHasheada = @ContrasenaNueva, DebeCambiarContrasena = 0 WHERE IdUsuario = @IdUsuario;
+    UPDATE Usuarios
+    SET ContrasenaHasheada = @ContrasenaHasheadaNueva,
+        DebeCambiarContrasena = 0
+    WHERE IdUsuario = @IdUsuario;
+END
+GO
+
+CREATE OR ALTER PROCEDURE usp_Usuarios_ActualizarHashContrasena
+    @IdUsuario INT,
+    @ContrasenaHasheada VARCHAR(255),
+    @LimpiarBanderaDeCambio BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Usuarios
+    SET ContrasenaHasheada = @ContrasenaHasheada,
+        DebeCambiarContrasena = CASE WHEN @LimpiarBanderaDeCambio = 1 THEN 0 ELSE DebeCambiarContrasena END
+    WHERE IdUsuario = @IdUsuario;
 END
 GO
 
@@ -1261,4 +1288,32 @@ INSERT INTO SeccionesDePlantilla (IdClinica, IdPlantilla, NombreDeLaSeccion, Des
 (1, 3, 'Prescripcion', 'Medicamentos con dosis y frecuencia', 2, 1, 'TextoLibre', 'Extrae cada medicamento con nombre generico, dosis, via, frecuencia y duracion'),
 (1, 3, 'Indicaciones Generales', 'Recomendaciones al paciente', 3, 0, 'TextoLibre', 'Genera recomendaciones generales para el paciente'),
 (1, 3, 'Proxima Cita', 'Fecha sugerida para control', 4, 0, 'Fecha', 'Extrae la fecha sugerida para la proxima cita');
+GO
+
+-- =============================================================================
+-- MIGRACIONES IDEMPOTENTES PARA BASES DE DATOS EXISTENTES
+-- (Estas se ejecutan siempre, incluso si la BD ya existia.)
+-- =============================================================================
+SET NOEXEC OFF;
+GO
+
+USE MedScribeDB;
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.Usuarios') AND name = 'PermisosPersonalizadosJSON'
+)
+BEGIN
+    ALTER TABLE dbo.Usuarios ADD PermisosPersonalizadosJSON VARCHAR(MAX) NULL;
+END
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.RolesDeClinica') AND name = 'EstaActivo'
+)
+BEGIN
+    ALTER TABLE dbo.RolesDeClinica ADD EstaActivo BIT NOT NULL CONSTRAINT DF_RolesDeClinica_EstaActivo DEFAULT 1;
+END
 GO

@@ -7,6 +7,14 @@ const clienteApi = axios.create({
   },
 })
 
+clienteApi.interceptors.request.use((configuracion) => {
+  const token = localStorage.getItem('medscribe_token')
+  if (token) {
+    configuracion.headers['Authorization'] = `Bearer ${token}`
+  }
+  return configuracion
+})
+
 clienteApi.interceptors.response.use(
   (respuesta) => respuesta,
   (error) => {

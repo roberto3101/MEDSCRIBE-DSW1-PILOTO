@@ -6,7 +6,7 @@ namespace MedScribe.API.Servicios
     public class ProveedorContextoClinica
     {
         private readonly string _cadenaDeConexion;
-        private int _idClinicaActual = 1;
+        private int _idClinicaActual = 0;
 
         public ProveedorContextoClinica(IConfiguration configuracion)
         {

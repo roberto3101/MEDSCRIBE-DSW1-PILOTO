@@ -1,5 +1,7 @@
 using MedScribe.API.Contratos;
 using MedScribe.API.Modelos.Peticiones;
+using MedScribe.API.Servicios;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 
@@ -10,12 +12,15 @@ namespace MedScribe.API.Controladores
     public class ClinicaControlador : ControllerBase
     {
         private readonly IClinicaDAO _clinicaDAO;
+        private readonly ServicioContrasenas _contrasenas;
 
-        public ClinicaControlador(IClinicaDAO clinicaDAO)
+        public ClinicaControlador(IClinicaDAO clinicaDAO, ServicioContrasenas contrasenas)
         {
             _clinicaDAO = clinicaDAO;
+            _contrasenas = contrasenas;
         }
 
+        [AllowAnonymous]
         [HttpPost("registrar")]
         public IActionResult RegistrarClinica([FromBody] PeticionRegistrarClinica peticion)
         {
@@ -25,6 +30,8 @@ namespace MedScribe.API.Controladores
             var slug = Regex.Replace(peticion.NombreComercial.ToLower().Trim(), @"\s+", "-");
             slug = Regex.Replace(slug, @"[^a-z0-9\-]", "");
 
+            var contrasenaHasheada = _contrasenas.Hashear(peticion.ContrasenaAdmin);
+
             int idClinica = _clinicaDAO.RegistrarClinicaCompleta(
                 peticion.RazonSocial,
                 peticion.Ruc,
@@ -33,7 +40,7 @@ namespace MedScribe.API.Controladores
                 peticion.CorreoContacto,
                 peticion.NombreAdmin,
                 peticion.CorreoAdmin,
-                peticion.ContrasenaAdmin
+                contrasenaHasheada
             );
 
             if (idClinica > 0)
