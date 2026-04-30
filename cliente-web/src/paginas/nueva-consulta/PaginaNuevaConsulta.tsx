@@ -38,7 +38,7 @@ export default function PaginaNuevaConsulta() {
   const [duracionEnSegundos, establecerDuracion] = useState(0)
   const [audioListo, establecerAudioListo] = useState(false)
   const [diarizacionActiva, establecerDiarizacionActiva] = useState(false)
-  const [motorDiarizacion, establecerMotorDiarizacion] = useState('pyannote')
+  const [motorDiarizacion, establecerMotorDiarizacion] = useState('deepgram')
   const [modalDiarizacionAbierto, establecerModalDiarizacionAbierto] = useState(false)
 
   const [textoBusqueda, establecerTextoBusqueda] = useState(estadoPersistido?.textoBusqueda || estadoPersistido?.dniBusqueda || '')
@@ -674,23 +674,8 @@ export default function PaginaNuevaConsulta() {
             </div>
 
             {diarizacionActiva && (
-              <div className="flex gap-2 mb-4">
-                <button type="button" onClick={() => establecerMotorDiarizacion('pyannote')}
-                  className={`flex-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-                    motorDiarizacion === 'pyannote'
-                      ? 'bg-medico-50 border-medico-300 text-medico-700'
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                  }`}>
-                  Pyannote (local, gratuito)
-                </button>
-                <button type="button" onClick={() => establecerMotorDiarizacion('deepgram')}
-                  className={`flex-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-                    motorDiarizacion === 'deepgram'
-                      ? 'bg-medico-50 border-medico-300 text-medico-700'
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                  }`}>
-                  Deepgram (cloud, preciso)
-                </button>
+              <div className="mb-4 px-3 py-2 rounded-lg border bg-medico-50 border-medico-300 text-xs font-medium text-medico-700">
+                Motor: Deepgram (cloud, preciso)
               </div>
             )}
 

@@ -3,7 +3,13 @@ import tempfile
 import numpy as np
 import soundfile as sf
 import torch
-from pyannote.audio import Pipeline
+
+try:
+    from pyannote.audio import Pipeline
+    _PYANNOTE_DISPONIBLE = True
+except ImportError:
+    Pipeline = None
+    _PYANNOTE_DISPONIBLE = False
 
 TOKEN_HUGGINGFACE = os.getenv("AI_EXTRA_5_API_KEY", "")
 _pipeline_cache = None
@@ -14,6 +20,11 @@ MODELO_PYANNOTE = "pyannote/speaker-diarization-3.1"
 
 def _obtener_pipeline_pyannote():
     global _pipeline_cache
+    if not _PYANNOTE_DISPONIBLE:
+        raise RuntimeError(
+            "Motor Pyannote no disponible: pyannote.audio no esta instalado. "
+            "Usa el motor Deepgram (DEEPGRAM_API_KEY) para diarizacion cloud."
+        )
     if _pipeline_cache is None:
         if not TOKEN_HUGGINGFACE:
             raise RuntimeError(
@@ -21,7 +32,6 @@ def _obtener_pipeline_pyannote():
                 "Obtenlo en https://huggingface.co/settings/tokens y acepta los "
                 "terminos en https://huggingface.co/" + MODELO_PYANNOTE
             )
-        # pyannote.audio 3.3.2 usa use_auth_token (no token) internamente.
         _pipeline_cache = Pipeline.from_pretrained(
             MODELO_PYANNOTE,
             use_auth_token=TOKEN_HUGGINGFACE,

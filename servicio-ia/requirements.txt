@@ -42,5 +42,12 @@ scipy>=1.11,<2.0
 # hf_hub_download con `use_auth_token=`, kwarg que huggingface_hub 1.0+
 # elimino. pyannote 4.x lo arregla pero exige torch 2.8+ y torchcodec,
 # lo que rompe la rueda CPU-only 2.5.1.
-pyannote.audio==3.3.2
-huggingface_hub<1.0
+#
+# DESHABILITADO TEMPORALMENTE: pyannote.audio depende transitivamente de
+# `lightning>=2.0.1`, paquete actualmente en cuarentena en PyPI
+# (pypi:project-status: quarantined) -> imposible instalar. Cuando PyPI
+# reactive el paquete, descomentar y rebuildear. Mientras tanto, la
+# diarizacion local con Pyannote queda inhabilitada; la diarizacion cloud
+# con Deepgram sigue funcionando (DEEPGRAM_API_KEY).
+# pyannote.audio==3.3.2
+# huggingface_hub<1.0
