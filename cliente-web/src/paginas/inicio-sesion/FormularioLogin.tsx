@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useContextoAutenticacion } from '../../contextos/ContextoAutenticacion'
-import { Mail, Lock, ArrowRight } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
 
 export default function FormularioLogin() {
   const [correo, establecerCorreo] = useState('')
   const [contrasena, establecerContrasena] = useState('')
+  const [mostrarContrasena, establecerMostrarContrasena] = useState(false)
   const [error, establecerError] = useState('')
   const [estaCargando, establecerEstaCargando] = useState(false)
   const { iniciarSesion } = useContextoAutenticacion()
@@ -54,14 +55,22 @@ export default function FormularioLogin() {
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
           <input
-            type="password"
+            type={mostrarContrasena ? 'text' : 'password'}
             value={contrasena}
             onChange={(e) => establecerContrasena(e.target.value)}
             placeholder="Minimo 8 caracteres"
             required
             minLength={8}
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400 transition-all"
+            className="w-full pl-11 pr-11 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medico-500/20 focus:border-medico-400 transition-all"
           />
+          <button
+            type="button"
+            onClick={() => establecerMostrarContrasena((valor) => !valor)}
+            aria-label={mostrarContrasena ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            {mostrarContrasena ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
         </div>
       </div>
 
