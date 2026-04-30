@@ -4,11 +4,34 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from PIL import Image as PILImage
 import io
 import os
 import base64
 import tempfile
 from datetime import datetime
+
+
+_FORMATOS_NATIVOS_DOCX = {"png", "jpg", "jpeg", "bmp", "gif", "tiff", "tif"}
+
+
+def _imagen_compatible_con_docx(ruta: str):
+    """python-docx solo acepta PNG/JPG/BMP/GIF/TIFF. Si el archivo es WebP/SVG/HEIC,
+    lo convertimos a PNG en memoria y devolvemos un BufferedReader compatible."""
+    if not ruta or not os.path.exists(ruta):
+        return ruta
+    extension = ruta.rsplit(".", 1)[-1].lower() if "." in ruta else ""
+    if extension in _FORMATOS_NATIVOS_DOCX:
+        return ruta
+    try:
+        with PILImage.open(ruta) as img:
+            modo_destino = "RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB"
+            buffer = io.BytesIO()
+            img.convert(modo_destino).save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+    except Exception:
+        return ruta
 
 
 NAVY = RGBColor(0x0B, 0x2B, 0x4C)
@@ -212,7 +235,7 @@ def _agregar_encabezado(doc: Document, config: dict) -> None:
         p_logo.paragraph_format.space_after = Pt(0)
         p_logo.paragraph_format.line_spacing = 1.0
         try:
-            p_logo.add_run().add_picture(logo_path, width=Cm(1.8))
+            p_logo.add_run().add_picture(_imagen_compatible_con_docx(logo_path), width=Cm(1.8))
         except Exception:
             pass
         indice = 1
@@ -483,7 +506,7 @@ def _rellenar_celda_firma_grafica(celda, firma_path: str) -> None:
 
     if firma_path:
         try:
-            primero.add_run().add_picture(firma_path, width=Cm(4.8), height=Cm(1.6))
+            primero.add_run().add_picture(_imagen_compatible_con_docx(firma_path), width=Cm(4.8), height=Cm(1.6))
             return
         except Exception:
             pass
